@@ -144,7 +144,10 @@ class TrackingService : Service(), LocationListener {
                 refreshNotification()
             }
             FINISH -> {
-                repository.finish()
+                repository.finish(
+                    name = intent.getStringExtra("name").orEmpty(),
+                    notes = intent.getStringExtra("notes").orEmpty(),
+                )
                 endForeground()
             }
             RETRY -> {
@@ -152,6 +155,13 @@ class TrackingService : Service(), LocationListener {
                 repository.resetSignal()
                 connectGps()
                 // A bound-only speedometer must not become a permanently started service.
+                if (!foreground) stopSelf(startId)
+            }
+            TRACKING_ON,
+            TRACKING_OFF -> {
+                repository.tracking(intent.action == TRACKING_ON)
+                refreshLocation()
+                refreshNotification()
                 if (!foreground) stopSelf(startId)
             }
         }
@@ -164,7 +174,12 @@ class TrackingService : Service(), LocationListener {
 
     private fun refreshLocation() {
         repository.permissions(hasPermission(), locations.locationEnabled())
-        if (!hasPermission() || !locations.locationEnabled()) disconnectGps()
+        if (
+            !repository.state.value.trackingEnabled ||
+                !hasPermission() ||
+                !locations.locationEnabled()
+        )
+            disconnectGps()
         else if (bound || repository.state.value.recording != Recording.IDLE) connectGps()
     }
 
@@ -217,7 +232,7 @@ class TrackingService : Service(), LocationListener {
         val permitted = hasPermission()
         val enabled = locations.locationEnabled()
         repository.permissions(permitted, enabled)
-        if (!permitted || !enabled || listening) return
+        if (!repository.state.value.trackingEnabled || !permitted || !enabled || listening) return
         listening = true
         repository.locationProblem(null)
         connectSatellites()
@@ -305,6 +320,7 @@ class TrackingService : Service(), LocationListener {
     private fun acceptLocation(location: Location, source: LocationSource) {
         if (
             !listening ||
+                !repository.state.value.trackingEnabled ||
                 !hasPermission() ||
                 !locations.locationEnabled() ||
                 !location.hasAccuracy()
@@ -409,6 +425,8 @@ class TrackingService : Service(), LocationListener {
         const val PAUSE = "velocity.PAUSE"
         const val FINISH = "velocity.FINISH"
         const val RETRY = "velocity.RETRY"
+        const val TRACKING_ON = "velocity.TRACKING_ON"
+        const val TRACKING_OFF = "velocity.TRACKING_OFF"
         private const val CHANNEL = "velocity_recording"
         private const val NOTIFICATION = 21
     }

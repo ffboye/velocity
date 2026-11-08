@@ -47,6 +47,9 @@ class MainActivity : ComponentActivity() {
     private val repository
         get() = (application as VelocityApplication).journeys
 
+    private val maps
+        get() = (application as VelocityApplication).maps
+
     private var binding = false
     private var tracking: TrackingService.TrackingBinder? = null
     private var pendingStart = false
@@ -159,6 +162,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val state by repository.state.collectAsState()
             val updateState by updater.state.collectAsState()
+            val mapState by maps.state.collectAsState()
             LaunchedEffect(Unit) { updater.startup() }
             var page by rememberSaveable { mutableIntStateOf(0) }
             SideEffect {
@@ -173,9 +177,29 @@ class MainActivity : ComponentActivity() {
                     onPage = { page = it },
                     onStart = { requestLocation(start = true) },
                     onPause = { command(TrackingService.PAUSE) },
-                    onFinish = { command(TrackingService.FINISH) },
+                    onFinish = { name, notes ->
+                        startService(
+                            Intent(this, TrackingService::class.java)
+                                .setAction(TrackingService.FINISH)
+                                .putExtra("name", name)
+                                .putExtra("notes", notes)
+                        )
+                    },
                     onEnableLocation = { requestLocation(start = false) },
                     onRetryGps = { command(TrackingService.RETRY) },
+                    onTracking = { enabled ->
+                        if (enabled && !hasLocation()) {
+                            repository.tracking(true)
+                            requestLocation(start = false)
+                        } else
+                            command(
+                                if (enabled) TrackingService.TRACKING_ON
+                                else TrackingService.TRACKING_OFF
+                            )
+                    },
+                    onEditJourney = repository::editJourney,
+                    mapState = mapState,
+                    mapController = maps,
                     onGpsSettings = {
                         startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
                     },
@@ -242,6 +266,7 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         updater.startup()
+        maps.foreground(true)
         refreshPermissions()
         bindGps()
     }
@@ -253,6 +278,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        maps.foreground(false)
         if (binding) {
             unbindService(connection)
             binding = false

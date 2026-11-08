@@ -12,8 +12,8 @@ import androidx.compose.ui.platform.LocalContext
 private val DarkColorScheme =
     darkColorScheme(
         primary = VelocityColors.Accent,
-        onPrimary = androidx.compose.ui.graphics.Color(0xFF31001C),
-        secondary = androidx.compose.ui.graphics.Color(0xFFD4AEFF),
+        onPrimary = androidx.compose.ui.graphics.Color(0xFF13243F),
+        secondary = VelocityColors.Accent,
         background = VelocityColors.Background,
         onBackground = VelocityColors.Text,
         surface = VelocityColors.Surface,

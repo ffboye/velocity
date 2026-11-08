@@ -29,6 +29,7 @@ class JourneyRepository(context: Context) {
                         ?: SpeedUnit.KMH,
                 keepAwake = settings.getBoolean("keep_awake", true),
                 speedLimit = settings.getFloat("speed_limit", 0f).toDouble(),
+                trackingEnabled = settings.getBoolean("tracking_enabled", true),
             )
         )
     val state = mutable.asStateFlow()
@@ -119,9 +120,10 @@ class JourneyRepository(context: Context) {
     }
 
     fun accept(fix: GpsFix) {
+        if (!mutable.value.trackingEnabled) return
         val now = SystemClock.elapsedRealtime()
         if (fix.isFreshLocation(now)) {
-            observedAt = now
+            observedAt = fix.elapsedMillis
             mutable.update { it.copy(searchAccuracy = fix.accuracy, locationProblem = null) }
         }
         if (engine.accept(fix, now)) publish()
@@ -136,7 +138,10 @@ class JourneyRepository(context: Context) {
     }
 
     fun satellites(readings: List<Satellite>) {
-        if (!mutable.value.permission || !mutable.value.gpsEnabled) return
+        if (
+            !mutable.value.trackingEnabled || !mutable.value.permission || !mutable.value.gpsEnabled
+        )
+            return
         mutable.update {
             it.copy(
                 gnss =
@@ -172,10 +177,12 @@ class JourneyRepository(context: Context) {
             it.copy(
                 fix = engine.fix,
                 fixAgeMillis = engine.fix?.let { p -> (now - p.elapsedMillis).coerceAtLeast(0) },
-                gnssFresh = it.permission && it.gpsEnabled && it.gnss.isFresh(now),
+                gnssFresh =
+                    it.trackingEnabled && it.permission && it.gpsEnabled && it.gnss.isFresh(now),
                 searchAccuracy = if (now - observedAt <= 5000) it.searchAccuracy else null,
                 hasSignal =
-                    it.permission &&
+                    it.trackingEnabled &&
+                        it.permission &&
                         it.gpsEnabled &&
                         engine.fix?.let { p -> now - p.elapsedMillis <= 5000 } == true,
                 speed = if (it.permission && it.gpsEnabled) engine.speed else 0.0,
@@ -194,6 +201,7 @@ class JourneyRepository(context: Context) {
                 installationInProgress ||
                 !storageHealthy ||
                 !mutable.value.permission ||
+                !mutable.value.trackingEnabled ||
                 !mutable.value.gpsEnabled
         )
             return false
@@ -208,14 +216,24 @@ class JourneyRepository(context: Context) {
     }
 
     fun pauseResume() {
+        if (!mutable.value.trackingEnabled && engine.recording == Recording.PAUSED) {
+            message("Turn tracking on before resuming your journey.")
+            return
+        }
         engine.togglePause(SystemClock.elapsedRealtime())
         publish()
         persist()
     }
 
-    fun finish(interrupted: Boolean = false) {
+    fun finish(interrupted: Boolean = false, name: String = "", notes: String = "") {
         val journey =
-            engine.finish(SystemClock.elapsedRealtime())?.copy(interrupted = interrupted) ?: return
+            engine
+                .finish(SystemClock.elapsedRealtime())
+                ?.copy(
+                    interrupted = interrupted,
+                    name = name.trim().take(100),
+                    notes = notes.trim().take(2000),
+                ) ?: return
         mutable.update {
             it.copy(
                 journeys = listOf(journey) + it.journeys,
@@ -241,8 +259,36 @@ class JourneyRepository(context: Context) {
     }
 
     fun delete(id: String) {
-        if (!storageHealthy) return
+        if (!storageHealthy || installationInProgress) return
         mutable.update { it.copy(journeys = it.journeys.filterNot { trip -> trip.id == id }) }
+        persist()
+    }
+
+    fun editJourney(id: String, name: String, notes: String) {
+        if (!storageHealthy || installationInProgress) return
+        mutable.update {
+            it.copy(
+                journeys =
+                    it.journeys.map { trip ->
+                        if (trip.id == id)
+                            trip.copy(name = name.trim().take(100), notes = notes.trim().take(2000))
+                        else trip
+                    }
+            )
+        }
+        persist()
+    }
+
+    fun tracking(enabled: Boolean) {
+        settings.edit { putBoolean("tracking_enabled", enabled) }
+        if (!enabled && engine.recording == Recording.RECORDING)
+            engine.togglePause(SystemClock.elapsedRealtime())
+        mutable.update { it.copy(trackingEnabled = enabled, message = null) }
+        if (!enabled) {
+            resetSignal()
+            receiver(ReceiverStatus.IDLE)
+        }
+        publish()
         persist()
     }
 

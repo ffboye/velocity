@@ -20,6 +20,21 @@ object JourneyCodec {
             put("distanceMeters", journey.distanceMeters)
             put("maxSpeed", journey.maxSpeed)
             put("interrupted", journey.interrupted)
+            put("name", journey.name)
+            put("notes", journey.notes)
+            put(
+                "samples",
+                JSONArray().apply {
+                    journey.samples.forEach {
+                        put(
+                            JSONArray()
+                                .put(it.recordedMillis)
+                                .put(it.metersPerSecond)
+                                .put(it.segment)
+                        )
+                    }
+                },
+            )
             put(
                 "points",
                 JSONArray().apply {
@@ -49,6 +64,14 @@ object JourneyCodec {
                 RoutePoint(p.getDouble(0), p.getDouble(1), p.getLong(2), p.getInt(3))
             },
             json.optBoolean("interrupted"),
+            json.optString("name", ""),
+            json.optString("notes", ""),
+            json.optJSONArray("samples")?.let { samples ->
+                (0 until samples.length()).map { index ->
+                    val s = samples.getJSONArray(index)
+                    SpeedSample(s.getLong(0), s.getDouble(1), s.getInt(2))
+                }
+            } ?: emptyList(),
         )
     }
 
@@ -78,7 +101,7 @@ object JourneyCodec {
             }
         return buildString {
             append(
-                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<gpx version=\"1.1\" creator=\"Velocity\" xmlns=\"http://www.topografix.com/GPX/1/1\"><trk><name>Velocity journey</name>"
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<gpx version=\"1.1\" creator=\"Velocity\" xmlns=\"http://www.topografix.com/GPX/1/1\"><trk><name>${xml(journey.name.ifBlank { "Velocity journey" })}</name><desc>${xml(journey.notes)}</desc>"
             )
             var segment: Int? = null
             journey.points.forEach { p ->
@@ -95,6 +118,14 @@ object JourneyCodec {
             append("</trk></gpx>")
         }
     }
+
+    private fun xml(value: String) =
+        value
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\"", "&quot;")
+            .replace("'", "&apos;")
 }
 
 class JourneyStorage(directory: File) {

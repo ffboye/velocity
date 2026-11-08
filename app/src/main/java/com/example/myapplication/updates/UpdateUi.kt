@@ -7,8 +7,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -134,15 +132,10 @@ fun UpdateDialog(
                 Box(
                     Modifier.fillMaxWidth()
                         .height(4.dp)
-                        .background(
-                            Brush.horizontalGradient(
-                                listOf(MaterialTheme.colorScheme.primary, Color(0xFFBD73F2))
-                            ),
-                            RoundedCornerShape(4.dp),
-                        )
+                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
                 )
                 Text(
-                    if (state.manifest == null) "Update check" else "A little more velocity.",
+                    if (state.manifest == null) "Update check" else "Update available",
                     style = MaterialTheme.typography.headlineSmall,
                 )
                 state.manifest?.let { release ->

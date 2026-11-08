@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
 import androidx.compose.ui.window.Dialog
 import com.example.myapplication.BuildConfig
+import com.example.myapplication.maps.*
 import com.example.myapplication.tracking.*
 import com.example.myapplication.ui.theme.VelocityColors
 import java.text.SimpleDateFormat
@@ -45,7 +46,7 @@ fun VelocityApp(
     onPage: (Int) -> Unit,
     onStart: () -> Unit,
     onPause: () -> Unit,
-    onFinish: () -> Unit,
+    onFinish: (String, String) -> Unit,
     onEnableLocation: () -> Unit,
     onGpsSettings: () -> Unit,
     onAppSettings: () -> Unit,
@@ -60,10 +61,15 @@ fun VelocityApp(
     updates: @Composable () -> Unit = {},
     onBackup: () -> Unit = {},
     onRestore: () -> Unit = {},
+    onEditJourney: (String, String, String) -> Unit = { _, _, _ -> },
+    onTracking: (Boolean) -> Unit = {},
+    mapState: MapState = MapState(),
+    mapController: OfflineMaps? = null,
 ) {
     val snackbar = remember { SnackbarHostState() }
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
     var finishDialog by rememberSaveable { mutableStateOf(false) }
+    var mapJourney by rememberSaveable { mutableStateOf<String?>(null) }
     val pageState = rememberSaveableStateHolder()
     BackHandler(enabled = selected != null || finishDialog || page != 0) {
         when {
@@ -133,15 +139,19 @@ fun VelocityApp(
                 if (page == 0 || state.recording != Recording.IDLE)
                     Box(Modifier.padding(horizontal = 22.dp, vertical = 12.dp)) {
                         if (state.recording == Recording.IDLE) {
-                            GradientButton(
+                            PrimaryButton(
                                 if (state.loading) "Loading journeys…" else "Start journey",
                                 onStart,
-                                enabled = !state.loading && state.storageReady,
+                                enabled =
+                                    !state.loading && state.storageReady && state.trackingEnabled,
                             )
                         } else
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 OutlinedButton(
                                     onClick = onPause,
+                                    enabled =
+                                        state.recording != Recording.PAUSED ||
+                                            state.trackingEnabled,
                                     modifier = Modifier.weight(1f).heightIn(min = 56.dp),
                                     shape = RoundedCornerShape(18.dp),
                                 ) {
@@ -160,12 +170,15 @@ fun VelocityApp(
                             }
                     }
                 NavigationBar(containerColor = VelocityColors.Navigation, tonalElevation = 0.dp) {
-                    listOf("Speedometer", "Journeys", "GPS", "Settings").forEachIndexed {
+                    listOf("Speed", "Journeys", "Map", "GPS", "Settings").forEachIndexed {
                         index,
                         label ->
                         NavigationBarItem(
                             selected = page == index,
-                            onClick = { onPage(index) },
+                            onClick = {
+                                selected = null
+                                onPage(index)
+                            },
                             icon = { NavGlyph(index, page == index) },
                             label = { Text(label, fontSize = 11.sp) },
                             colors =
@@ -187,6 +200,16 @@ fun VelocityApp(
             when (page) {
                 1 -> JourneysScreen(state, content) { selected = it.id }
                 2 ->
+                    if (mapController != null)
+                        MapsScreen(
+                            state,
+                            mapState,
+                            mapController,
+                            mapJourney,
+                            { mapJourney = it },
+                            content,
+                        )
+                3 ->
                     GpsScreen(
                         state,
                         content,
@@ -194,8 +217,9 @@ fun VelocityApp(
                         onGpsSettings,
                         onAppSettings,
                         onRetryGps,
+                        onTracking,
                     )
-                3 ->
+                4 ->
                     SettingsScreen(
                         state,
                         content,
@@ -215,7 +239,7 @@ fun VelocityApp(
                         onGpsSettings,
                         onAppSettings,
                         onRetryGps,
-                        onConnectivity = { onPage(2) },
+                        onConnectivity = { onPage(3) },
                     )
             }
         }
@@ -232,27 +256,24 @@ fun VelocityApp(
                     selected = null
                 },
                 onExport = { onExport(journey) },
+                onEdit = { name, notes -> onEditJourney(journey.id, name, notes) },
+                onMap = {
+                    mapJourney = journey.id
+                    selected = null
+                    onPage(2)
+                },
             )
         }
     if (finishDialog)
-        AlertDialog(
-            onDismissRequest = { finishDialog = false },
-            title = { Text("Finish this journey?") },
-            text = {
-                Text("Your distance, time, speed statistics and route will be saved to Journeys.")
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        finishDialog = false
-                        onFinish()
-                    }
-                ) {
-                    Text("Save journey")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { finishDialog = false }) { Text("Keep recording") }
+        JourneyEditor(
+            "Finish this journey?",
+            "",
+            "",
+            "Save journey",
+            { finishDialog = false },
+            { name, notes ->
+                finishDialog = false
+                onFinish(name, notes)
             },
         )
 }
@@ -272,7 +293,13 @@ private fun Dashboard(
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         Spacer(Modifier.height(4.dp))
-        Header("Speedometer", "Make every journey count.", state, onConnectivity)
+        Header("Speedometer", "Live speed and recorded distance.", state, onConnectivity)
+        if (!state.trackingEnabled)
+            GlassCard {
+                Text("Tracking is off", style = MaterialTheme.typography.titleMedium)
+                Text("Turn tracking on in GPS when you're ready to record.", color = Muted)
+                TextButton(onConnectivity) { Text("Open GPS controls") }
+            }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.fillMaxWidth(),
@@ -282,20 +309,22 @@ private fun Dashboard(
                 when (state.recording) {
                     Recording.RECORDING -> "JOURNEY IN PROGRESS"
                     Recording.PAUSED -> "JOURNEY PAUSED"
-                    else -> "YOUR PACE. YOUR JOURNEY."
+                    else -> "READY TO RECORD"
                 }
             )
             SpeedDial(state)
             val detail =
                 when {
-                    !state.permission -> "Ready when you are"
+                    !state.trackingEnabled -> "Tracking is off"
+                    !state.permission -> "Precise location needed"
                     !state.gpsEnabled -> "GPS is turned off"
                     !state.hasSignal ->
                         if (state.searchAccuracy != null) "Improving location accuracy…"
                         else "Finding your GPS signal…"
                     state.speedLimit > 0 && state.speed > state.speedLimit ->
                         "Above your speed reminder"
-                    else -> "Live GPS speed · ±${state.fix?.accuracy?.roundToInt() ?: 0} m"
+                    else ->
+                        "${state.locationQuality.label} signal · ±${state.fix?.accuracy?.roundToInt() ?: 0} m"
                 }
             Text(
                 detail,
@@ -305,7 +334,7 @@ private fun Dashboard(
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             )
         }
-        if (state.permission && state.gpsEnabled && !state.hasSignal)
+        if (state.trackingEnabled && state.permission && state.gpsEnabled && !state.hasSignal)
             GlassCard {
                 Text("Waiting for accurate location", fontWeight = FontWeight.SemiBold)
                 Text(
@@ -333,9 +362,9 @@ private fun Dashboard(
                 )
                 Box(Modifier.height(42.dp).width(1.dp).background(Border))
                 Stat(
-                    "TRIP TIME",
+                    "RECORDED TIME",
                     duration(state.durationMillis),
-                    "active time",
+                    "excludes pauses",
                     Modifier.weight(1f),
                 )
             }
@@ -389,8 +418,10 @@ private fun Dashboard(
                 Text("Offline route trace · north up", color = Muted, fontSize = 11.sp)
             }
         Text(
-            if (state.recording == Recording.IDLE) "No accounts. No cloud. Just the road ahead."
-            else "Recording continues with your screen off. Pausing excludes time and distance.",
+            if (state.recording == Recording.IDLE)
+                "Average = distance ÷ recorded time. Manual pauses are excluded; stationary recording time counts."
+            else
+                "Recording continues with your screen off. Manual pauses exclude time and distance.",
             fontSize = 11.sp,
             color = Muted,
             modifier = Modifier.align(Alignment.CenterHorizontally),
@@ -420,11 +451,6 @@ private fun SpeedDial(state: DriveState) {
                 val center = Offset(size.width / 2, size.height / 2)
                 val origin = center - Offset(radius, radius)
                 val arcSize = Size(radius * 2, radius * 2)
-                drawCircle(
-                    Brush.radialGradient(listOf(accent.copy(alpha = 0.07f), Color.Transparent)),
-                    radius * 1.2f,
-                    center,
-                )
                 drawArc(
                     Color(0xFF322635),
                     135f,
@@ -458,7 +484,6 @@ private fun SpeedDial(state: DriveState) {
                 }
                 val tip = Math.toRadians(135.0 + 270 * fraction)
                 val dot = center + Offset(cos(tip).toFloat() * radius, sin(tip).toFloat() * radius)
-                drawCircle(accent.copy(alpha = 0.16f), 12.dp.toPx(), dot)
                 drawCircle(accent, 4.dp.toPx(), dot)
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -466,7 +491,7 @@ private fun SpeedDial(state: DriveState) {
                     if (state.hasSignal) speed.roundToInt().toString() else "0",
                     fontSize = 88.sp,
                     fontWeight = FontWeight.Light,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = FontFamily.Default,
                     letterSpacing = (-5).sp,
                     lineHeight = 100.sp,
                 )
@@ -500,6 +525,7 @@ private fun SpeedDial(state: DriveState) {
 
 @Composable
 private fun JourneysScreen(state: DriveState, modifier: Modifier, select: (Journey) -> Unit) {
+    val summary = JourneyTotals.from(state.journeys, System.currentTimeMillis())
     LazyColumn(
         modifier.padding(horizontal = 22.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -512,12 +538,12 @@ private fun JourneysScreen(state: DriveState, modifier: Modifier, select: (Journ
                     Spacer(Modifier.height(22.dp))
                     NavGlyph(1, true, Modifier.size(38.dp).align(Alignment.CenterHorizontally))
                     Text(
-                        if (state.loading) "Loading journeys…" else "The road is waiting.",
+                        if (state.loading) "Loading journeys…" else "No journeys yet",
                         fontSize = 21.sp,
                         modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 20.dp),
                     )
                     Text(
-                        "Start a journey from the speedometer. Finish it to save your stats and route here.",
+                        "Record a journey to keep its route and statistics here.",
                         color = Muted,
                         fontSize = 13.sp,
                         modifier = Modifier.padding(vertical = 14.dp),
@@ -544,6 +570,33 @@ private fun JourneysScreen(state: DriveState, modifier: Modifier, select: (Journ
                             Modifier.weight(1f),
                         )
                     }
+                    HorizontalDivider(Modifier.padding(vertical = 16.dp), color = Border)
+                    Row {
+                        Stat(
+                            "AVERAGE SPEED",
+                            decimal(summary.averageSpeed * state.unit.multiplier, 0),
+                            state.unit.label,
+                            Modifier.weight(1f),
+                        )
+                        Stat(
+                            "TOP SPEED",
+                            decimal(summary.maxSpeed * state.unit.multiplier, 0),
+                            state.unit.label,
+                            Modifier.weight(1f),
+                        )
+                    }
+                    Text(
+                        "Last 7 days: ${decimal(summary.recentDistance / state.unit.distanceDivisor)} ${state.unit.distanceLabel} · Recorded time: ${duration(summary.recordedMillis)}",
+                        color = Muted,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(top = 16.dp),
+                    )
+                    Text(
+                        "Average uses total distance ÷ total recorded time, excluding manual pauses.",
+                        color = Muted,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
                 }
             }
         items(state.journeys, key = { it.id }) { journey ->
@@ -556,10 +609,10 @@ private fun JourneysScreen(state: DriveState, modifier: Modifier, select: (Journ
             ) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(date(journey.startedAt), fontWeight = FontWeight.SemiBold)
+                        Text(journey.displayName, fontWeight = FontWeight.SemiBold)
                         Text(
                             if (journey.interrupted) "Recovered recording"
-                            else time(journey.startedAt),
+                            else "${date(journey.startedAt)} · ${time(journey.startedAt)}",
                             color = Muted,
                             fontSize = 12.sp,
                         )
@@ -664,7 +717,7 @@ private fun SettingsScreen(
                 modifier = Modifier.padding(top = 14.dp),
             )
             Text(
-                "Journeys and satellite readings stay on this device. Android's location service may use Google Location Accuracy to help find you. Velocity contacts GitHub for app updates and never uploads your journeys.",
+                "Journeys and satellite readings stay on this device. OpenFreeMap supplies the map area you view; your route is drawn locally. Android may use Google Location Accuracy. GitHub is used for updates. Velocity never uploads your journeys.",
                 color = Muted,
                 fontSize = 13.sp,
                 modifier = Modifier.padding(top = 8.dp),
@@ -709,8 +762,11 @@ private fun JourneyDetails(
     onDismiss: () -> Unit,
     onDelete: () -> Unit,
     onExport: () -> Unit,
+    onEdit: (String, String) -> Unit,
+    onMap: () -> Unit,
 ) {
     var delete by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf(false) }
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
@@ -723,9 +779,18 @@ private fun JourneyDetails(
                 Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(22.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Text(date(journey.startedAt), fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
-                Text(time(journey.startedAt), color = Muted)
+                Text(journey.displayName, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
+                Text("${date(journey.startedAt)} · ${time(journey.startedAt)}", color = Muted)
+                if (journey.notes.isNotBlank()) Text(journey.notes, fontSize = 14.sp)
+                TextButton(onClick = { editing = true }) { Text("Edit name & notes") }
                 RouteTrace(journey.points, Modifier.fillMaxWidth().height(210.dp))
+                OutlinedButton(
+                    onMap,
+                    enabled = journey.points.isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("View street map")
+                }
                 Row {
                     Stat(
                         "DISTANCE",
@@ -734,7 +799,7 @@ private fun JourneyDetails(
                         Modifier.weight(1f),
                     )
                     Stat(
-                        "ACTIVE TIME",
+                        "RECORDED TIME",
                         duration(journey.durationMillis),
                         "h:mm:ss",
                         Modifier.weight(1f),
@@ -754,6 +819,12 @@ private fun JourneyDetails(
                         Modifier.weight(1f),
                     )
                 }
+                Text(
+                    "Average = distance ÷ recorded time. Manual pauses are excluded; stationary recording time counts.",
+                    color = Muted,
+                    fontSize = 12.sp,
+                )
+                SpeedGraph(journey, unit)
                 if (journey.interrupted)
                     Text(
                         "Recovered after recording was interrupted. Includes the last saved checkpoint.",
@@ -776,6 +847,18 @@ private fun JourneyDetails(
             }
         }
     }
+    if (editing)
+        JourneyEditor(
+            "Journey details",
+            journey.name,
+            journey.notes,
+            "Save changes",
+            { editing = false },
+            { name, notes ->
+                onEdit(name, notes)
+                editing = false
+            },
+        )
     if (delete)
         AlertDialog(
             onDismissRequest = { delete = false },
@@ -792,7 +875,7 @@ private fun JourneyDetails(
 private fun RouteTrace(points: List<RoutePoint>, modifier: Modifier) {
     if (points.isEmpty())
         Box(
-            modifier.background(Color(0xFF15121B), RoundedCornerShape(16.dp)),
+            modifier.background(VelocityColors.Navigation, RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center,
         ) {
             Text("Route appears after a GPS fix", color = Muted, fontSize = 12.sp)
@@ -810,7 +893,7 @@ private fun RouteTrace(points: List<RoutePoint>, modifier: Modifier) {
             }
         }
     Canvas(
-        modifier.clip(RoundedCornerShape(16.dp)).background(Color(0xFF15121B)).semantics {
+        modifier.clip(RoundedCornerShape(12.dp)).background(VelocityColors.Navigation).semantics {
             contentDescription = "Recorded route trace, north up, ${points.size} GPS points"
         }
     ) {
@@ -850,11 +933,6 @@ private fun RouteTrace(points: List<RoutePoint>, modifier: Modifier) {
         }
         drawPath(
             path,
-            Pink.copy(alpha = 0.12f),
-            style = Stroke(12.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
-        )
-        drawPath(
-            path,
             Pink,
             style = Stroke(3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
         )
@@ -867,47 +945,24 @@ private fun RouteTrace(points: List<RoutePoint>, modifier: Modifier) {
 internal fun GlassCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Surface(
         modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(16.dp),
         color = Panel,
         contentColor = VelocityColors.Text,
         border = BorderStroke(1.dp, Border),
     ) {
-        Column(
-            Modifier.background(Brush.linearGradient(listOf(VelocityColors.Raised, Panel)))
-                .padding(20.dp),
-            content = content,
-        )
+        Column(Modifier.padding(20.dp), content = content)
     }
 }
 
 @Composable
-private fun GradientButton(label: String, onClick: () -> Unit, enabled: Boolean) {
+private fun PrimaryButton(label: String, onClick: () -> Unit, enabled: Boolean) {
     Button(
         onClick,
         enabled = enabled,
         modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp),
-        shape = RoundedCornerShape(20.dp),
-        contentPadding = PaddingValues(0.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+        shape = RoundedCornerShape(12.dp),
     ) {
-        Box(
-            Modifier.fillMaxWidth()
-                .background(
-                    Brush.horizontalGradient(
-                        if (enabled) listOf(Color(0xFFFF6DB5), Color(0xFFC86AEF))
-                        else listOf(Border, Border)
-                    )
-                )
-                .padding(18.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                label,
-                color = if (enabled) Color(0xFF240D24) else Muted,
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-            )
-        }
+        Text(label, fontWeight = FontWeight.Bold, fontSize = 16.sp)
     }
 }
 
@@ -949,12 +1004,12 @@ internal fun Header(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text("V E L O C I T Y", color = Pink, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text("VELOCITY", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Medium)
             state?.let { SignalPill(it, onConnectivity) }
         }
         Text(
             title,
-            fontSize = 29.sp,
+            fontSize = 26.sp,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.semantics { heading() },
         )
@@ -964,9 +1019,14 @@ internal fun Header(
 
 @Composable
 private fun SignalPill(state: DriveState, onClick: (() -> Unit)? = null) {
-    val live = state.hasSignal
+    val color =
+        when (state.locationQuality) {
+            LocationQuality.GOOD -> Green
+            LocationQuality.WEAK -> Amber
+            else -> Muted
+        }
     Row(
-        Modifier.background((if (live) Green else Muted).copy(alpha = 0.08f), CircleShape)
+        Modifier.background(color.copy(alpha = 0.08f), CircleShape)
             .then(
                 if (onClick != null)
                     Modifier.clip(CircleShape).clickable(onClick = onClick).heightIn(min = 48.dp)
@@ -976,12 +1036,10 @@ private fun SignalPill(state: DriveState, onClick: (() -> Unit)? = null) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Box(Modifier.size(5.dp).background(if (live) Green else Muted, CircleShape))
+        Box(Modifier.size(5.dp).background(color, CircleShape))
         Text(
-            if (live) "LOCATION LIVE"
-            else if (!state.permission) "NO ACCESS"
-            else if (!state.gpsEnabled) "LOCATION OFF" else "SEARCHING",
-            color = if (live) Green else Muted,
+            "GPS · ${state.locationQuality.label.uppercase(Locale.getDefault())}",
+            color = color,
             fontSize = 10.sp,
             letterSpacing = 0.7.sp,
         )
@@ -1031,6 +1089,33 @@ private fun NavGlyph(index: Int, selected: Boolean, modifier: Modifier = Modifie
                 drawCircle(color, stroke * 1.5f, Offset(size.width * .8f, size.height * .2f))
             }
             2 -> {
+                val path =
+                    Path().apply {
+                        moveTo(size.width * .12f, size.height * .22f)
+                        lineTo(size.width * .38f, size.height * .12f)
+                        lineTo(size.width * .65f, size.height * .22f)
+                        lineTo(size.width * .88f, size.height * .12f)
+                        lineTo(size.width * .88f, size.height * .78f)
+                        lineTo(size.width * .65f, size.height * .88f)
+                        lineTo(size.width * .38f, size.height * .78f)
+                        lineTo(size.width * .12f, size.height * .88f)
+                        close()
+                    }
+                drawPath(path, color, style = Stroke(stroke))
+                drawLine(
+                    color,
+                    Offset(size.width * .38f, size.height * .12f),
+                    Offset(size.width * .38f, size.height * .78f),
+                    stroke,
+                )
+                drawLine(
+                    color,
+                    Offset(size.width * .65f, size.height * .22f),
+                    Offset(size.width * .65f, size.height * .88f),
+                    stroke,
+                )
+            }
+            3 -> {
                 drawCircle(color, size.minDimension * .32f, center, style = Stroke(stroke))
                 drawCircle(color, size.minDimension * .12f, center, style = Stroke(stroke))
                 drawLine(color, Offset(center.x, 0f), Offset(center.x, size.height * .22f), stroke)

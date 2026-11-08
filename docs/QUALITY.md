@@ -1,6 +1,6 @@
 # Release quality and GPS diagnostics
 
-Velocity 1.2.0 keeps the existing application ID, journey format and signing certificate. No migration or uninstall is needed for release-signed installations.
+Velocity 1.3.0 keeps the existing application ID, backward-compatible journey format and signing certificate. Existing files without names, notes or graph samples load with empty defaults; old routes are preserved. No uninstall is needed for release-signed installations.
 
 ## Satellite data
 
@@ -15,6 +15,12 @@ Listeners are removed when idle in the background and restored when the activity
 Active journey controls remain visible on all four tabs. Saves are serialized and conflated, with revisions preventing an older completed write from marking newer changes as saved. Update installation is blocked while recording, paused, loading, saving, or after a failed save. A persistent save error offers Retry save; installation becomes available after the retry succeeds.
 
 ## Verification
+
+Version 1.3 adds actual online/offline street-map rendering tests, download deletion that retains journeys, network-policy and region-size bounds, old-file compatibility, metadata and graph backup round-trips, GPX escaping, weighted averages, graph gap/pause timing, tracking off/on and editable names/notes. Offline verification disables the map SDK's network connectivity and checks that downloaded features render. Fixture routes and native mock data exist only in instrumentation.
+
+GPS quality is Good for accepted fixes up to 20 m and three seconds old; accepted less accurate/older fixes and fresh coarse observations are Weak. After five seconds an accepted fix is no longer used. No fresh location is Searching; app tracking, permission or device location off is Off. Satellite signal strength remains separate. Tracking off pauses manually and clears readings; it does not change Android's device-wide setting.
+
+Recorded time includes stationary time while recording and excludes manual pauses. Average speed is total distance divided by recorded seconds. There is no automatic stop detection or auto-pause. Speed samples use recorded elapsed time and segment IDs, are downsampled on long trips, and never reconstruct older journeys from positions or timestamps.
 
 Automated checks cover satellite normalization and freshness, Android GNSS report adaptation, live/unavailable diagnostic UI, four-tab navigation and Back, fused location without raw GPS, background recording, device location off/on reconnection, pause/finish and disk persistence, pending-save installation blocking, failed-write recovery, backups, GPX export and updater integrity. Instrumentation uses isolated test data and Android mock providers; no demonstration satellites are included in the app.
 

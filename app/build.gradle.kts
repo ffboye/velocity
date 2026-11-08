@@ -71,6 +71,8 @@ android {
 }
 
 dependencies {
+    implementation("org.maplibre.gl:android-sdk-opengl:13.7.1")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.google.android.gms:play-services-location:21.4.0")
     // Play services otherwise brings Fragment 1.1, incompatible with Activity Result APIs.
     implementation("androidx.fragment:fragment:1.8.9")

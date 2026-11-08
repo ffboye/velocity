@@ -106,6 +106,21 @@ class RecordingIntegrationTest {
             val beforePause = repository.state.value.distanceMeters
             compose.onNodeWithText("GPS", useUnmergedTree = true).performClick()
             compose.onNodeWithText("GPS connectivity").assertIsDisplayed()
+            compose.onNodeWithContentDescription("Velocity location tracking").performClick()
+            compose.waitUntil(10000) {
+                !repository.state.value.trackingEnabled &&
+                    repository.state.value.recording == Recording.PAUSED
+            }
+            assertFalse(repository.state.value.hasSignal)
+            assertTrue(repository.state.value.gpsEnabled)
+            Thread.sleep(1100)
+            inject(0.0005)
+            assertNull(repository.state.value.fix)
+            compose.onNodeWithText("Turn tracking on").performScrollTo().performClick()
+            compose.waitUntil(10000) { repository.state.value.trackingEnabled }
+            assertEquals(Recording.PAUSED, repository.state.value.recording)
+            compose.onNodeWithText("Resume", useUnmergedTree = true).performClick()
+            compose.waitUntil(10000) { repository.state.value.recording == Recording.RECORDING }
             compose.onNodeWithText("Pause", useUnmergedTree = true).performClick()
             compose.waitUntil(10000) { repository.state.value.recording == Recording.PAUSED }
             compose.runOnIdle { assertFalse(repository.tryBeginInstallation()) }
@@ -117,11 +132,16 @@ class RecordingIntegrationTest {
             compose.waitUntil(10000) { repository.state.value.recording == Recording.RECORDING }
             val previousCount = repository.state.value.journeys.size
             compose.onNodeWithText("Finish & save", useUnmergedTree = true).performClick()
+            compose.onNodeWithText("Journey name (optional)").performTextInput("Morning loop")
+            compose.onNodeWithText("Notes (optional)").performTextInput("Along the river")
             compose.onNodeWithText("Save journey", useUnmergedTree = true).performClick()
             compose.waitUntil(10000) { repository.state.value.journeys.size > previousCount }
             val saved = repository.state.value.journeys.first()
             assertTrue(saved.distanceMeters > 2)
             assertTrue(saved.durationMillis > 0)
+            assertEquals("Morning loop", saved.name)
+            assertEquals("Along the river", saved.notes)
+            assertTrue(saved.samples.isNotEmpty())
             compose.waitUntil(10000) {
                 runCatching {
                         JourneyCodec.decodeAll(File(context.filesDir, "journeys.json").readText())
@@ -142,10 +162,23 @@ class RecordingIntegrationTest {
                 assertFalse(repository.start())
                 repository.endInstallation()
             }
+            compose.onNodeWithText("Journeys", useUnmergedTree = true).performClick()
+            compose.onNodeWithText("Morning loop").performScrollTo().performClick()
+            compose.onNodeWithText("Edit name & notes").performClick()
+            compose
+                .onNodeWithText("Journey name (optional)")
+                .performTextReplacement("River journey")
+            compose.onNodeWithText("Save changes").performClick()
+            compose.waitUntil(10000) {
+                repository.state.value.journeys.first { it.id == saved.id }.name == "River journey"
+            }
+            compose.onNodeWithText("Speed over recorded time").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText("Done").performScrollTo().performClick()
             compose.runOnIdle { repository.delete(saved.id) }
         } finally {
             shell("cmd location set-location-enabled true")
             compose.runOnIdle {
+                repository.tracking(true)
                 if (repository.state.value.recording != Recording.IDLE) repository.finish()
             }
             locations.removeTestProvider(LocationManager.GPS_PROVIDER)

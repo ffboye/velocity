@@ -15,6 +15,21 @@ object JourneyBackup {
             require(trip.distanceMeters.isFinite() && trip.distanceMeters >= 0)
             require(trip.maxSpeed.isFinite() && trip.maxSpeed in 0.0..100.0)
             require(trip.points.size <= 6000)
+            require(trip.name.length <= 100 && trip.notes.length <= 2000)
+            require(trip.samples.size <= 12000)
+            var previousTime = -1L
+            trip.samples.forEach { sample ->
+                require(
+                    sample.recordedMillis in 0..trip.durationMillis &&
+                        sample.recordedMillis >= previousTime
+                )
+                require(
+                    sample.metersPerSecond.isFinite() &&
+                        sample.metersPerSecond in 0.0..100.0 &&
+                        sample.segment >= 0
+                )
+                previousTime = sample.recordedMillis
+            }
             trip.points.forEach { point ->
                 require(point.latitude.isFinite() && point.latitude in -90.0..90.0)
                 require(point.longitude.isFinite() && point.longitude in -180.0..180.0)

@@ -29,6 +29,7 @@ internal fun GpsScreen(
     onLocationSettings: () -> Unit,
     onAppSettings: () -> Unit,
     onRetry: () -> Unit,
+    onTracking: (Boolean) -> Unit = {},
 ) {
     var showAll by rememberSaveable { mutableStateOf(false) }
     val satellites = if (state.gnssFresh) state.gnss.satellites else emptyList()
@@ -37,21 +38,43 @@ internal fun GpsScreen(
         contentPadding = PaddingValues(vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item { Header("GPS connectivity", "A clear view of your connection to the sky.", state) }
+        item { Header("GPS connectivity", "Location quality and satellite reception.", state) }
+        item {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Velocity tracking", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Turning it off pauses your journey. Resume manually when ready.",
+                        color = Muted,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Switch(
+                    state.trackingEnabled,
+                    onCheckedChange = onTracking,
+                    modifier =
+                        Modifier.semantics { contentDescription = "Velocity location tracking" },
+                )
+            }
+        }
         item {
             GlassCard {
                 Eyebrow("LOCATION STATUS")
                 Text(
                     when {
+                        !state.trackingEnabled -> "Tracking is off"
                         !state.permission -> "Precise location needed"
                         !state.gpsEnabled -> "Device location is off"
+                        state.locationQuality == LocationQuality.WEAK -> "Weak location signal"
                         state.hasSignal -> "Ready for your journey"
                         state.searchAccuracy != null -> "Improving accuracy"
                         else -> "Finding your location"
                     },
                     fontSize = 23.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (state.hasSignal) Green else MaterialTheme.colorScheme.onSurface,
+                    color =
+                        if (state.locationQuality == LocationQuality.WEAK) Amber
+                        else if (state.hasSignal) Green else MaterialTheme.colorScheme.onSurface,
                     modifier =
                         Modifier.padding(top = 10.dp).semantics {
                             liveRegion = LiveRegionMode.Polite
@@ -59,10 +82,14 @@ internal fun GpsScreen(
                 )
                 Text(
                     when {
+                        !state.trackingEnabled ->
+                            "Velocity isn't requesting location. Android's device-wide location setting is unchanged."
                         !state.permission ->
                             "Allow precise location while using Velocity to measure speed and see satellite details."
                         !state.gpsEnabled ->
                             "Turn on location in Android, then return here. Velocity will reconnect automatically."
+                        state.locationQuality == LocationQuality.WEAK ->
+                            "Location is less accurate or getting old. Move to a clearer view of the sky. Only fresh fixes within 35 m are used for recording."
                         state.hasSignal ->
                             "Your phone is providing a fresh location for live speed and journey recording."
                         else ->
@@ -95,6 +122,8 @@ internal fun GpsScreen(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     when {
+                        !state.trackingEnabled ->
+                            Button(onClick = { onTracking(true) }) { Text("Turn tracking on") }
                         !state.permission -> {
                             Button(onPermission) { Text("Allow precise location") }
                             TextButton(onAppSettings) { Text("App permissions") }

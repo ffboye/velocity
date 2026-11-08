@@ -37,6 +37,8 @@ data class RoutePoint(
     val segment: Int,
 )
 
+data class SpeedSample(val recordedMillis: Long, val metersPerSecond: Double, val segment: Int)
+
 data class Journey(
     val id: String,
     val startedAt: Long,
@@ -45,6 +47,9 @@ data class Journey(
     val maxSpeed: Double,
     val points: List<RoutePoint>,
     val interrupted: Boolean = false,
+    val name: String = "",
+    val notes: String = "",
+    val samples: List<SpeedSample> = emptyList(),
 ) {
     val averageSpeed: Double
         get() = if (durationMillis > 0) distanceMeters / (durationMillis / 1000.0) else 0.0
@@ -64,6 +69,7 @@ data class DriveState(
     val gnssFresh: Boolean = false,
     val saveFailed: Boolean = false,
     val saving: Boolean = false,
+    val trackingEnabled: Boolean = true,
     val speed: Double = 0.0,
     val recording: Recording = Recording.IDLE,
     val durationMillis: Long = 0,
@@ -108,6 +114,8 @@ class JourneyEngine {
     private var anchor: GpsFix? = null
     private var segment = 0
     private val route = mutableListOf<RoutePoint>()
+    private val speedSamples = mutableListOf<SpeedSample>()
+    private var sampleInterval = 1000L
     val points: List<RoutePoint>
         get() = route.toList()
 
@@ -119,6 +127,8 @@ class JourneyEngine {
         distanceMeters = 0.0
         maxSpeed = 0.0
         route.clear()
+        speedSamples.clear()
+        sampleInterval = 1000L
         anchor = null
         segment = 0
         lastTick = elapsedMillis
@@ -148,7 +158,17 @@ class JourneyEngine {
 
     fun snapshot(interrupted: Boolean = false): Journey? =
         if (recording == Recording.IDLE) null
-        else Journey(id, startedAt, durationMillis, distanceMeters, maxSpeed, points, interrupted)
+        else
+            Journey(
+                id,
+                startedAt,
+                durationMillis,
+                distanceMeters,
+                maxSpeed,
+                points,
+                interrupted,
+                samples = speedSamples.toList(),
+            )
 
     fun finish(now: Long): Journey? {
         tick(now)
@@ -191,6 +211,27 @@ class JourneyEngine {
         if (recording != Recording.RECORDING) return true
         tick(now)
         maxSpeed = max(maxSpeed, measured)
+        if (anchor != null && gap != null && gap > 15) {
+            anchor = null
+            segment++
+        }
+        if (
+            speedSamples.lastOrNull()?.let {
+                durationMillis - it.recordedMillis >= sampleInterval || it.segment != segment
+            } != false
+        ) {
+            speedSamples.add(SpeedSample(durationMillis, speed, segment))
+            if (speedSamples.size > 6000) {
+                // Segment IDs retain graph gaps while bounding memory on long recordings.
+                val reduced =
+                    speedSamples.filterIndexed { index, sample ->
+                        index == 0 || index == speedSamples.lastIndex || index % 2 == 0
+                    }
+                speedSamples.clear()
+                speedSamples.addAll(reduced)
+                sampleInterval = (sampleInterval * 2).coerceAtMost(60000L)
+            }
+        }
         if (anchor == null || gap == null || gap > 15) {
             if (anchor != null) segment++
             anchor = value
