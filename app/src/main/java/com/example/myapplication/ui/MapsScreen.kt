@@ -2,14 +2,14 @@ package com.example.myapplication.ui
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.myapplication.maps.*
 import com.example.myapplication.tracking.*
@@ -45,8 +45,15 @@ internal fun MapsScreen(
     ) {
         Header("Your map", "Saved routes on a street map.", state)
         Box {
-            OutlinedButton(onClick = { chooser = true }, enabled = state.journeys.isNotEmpty()) {
-                Text(title)
+            OutlinedButton(
+                onClick = { chooser = true },
+                enabled = state.journeys.isNotEmpty() || state.recording != Recording.IDLE,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+            ) {
+                Text(title, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("⌄", Modifier.padding(start = 12.dp))
             }
             DropdownMenu(
                 expanded = chooser,
@@ -76,7 +83,7 @@ internal fun MapsScreen(
         }
         RouteMap(
             points,
-            Modifier.fillMaxWidth().height(420.dp),
+            Modifier.fillMaxWidth().height(420.dp).clip(RoundedCornerShape(18.dp)),
             focus = state.fix?.let { LatLng(it.latitude, it.longitude) },
             focusArea = focusArea,
             cameraKey = selected?.id ?: "current",
@@ -89,32 +96,21 @@ internal fun MapsScreen(
             style = MaterialTheme.typography.bodySmall,
         )
         HorizontalDivider(color = Border)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Offline maps", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    "Your choice. Download an area to use without a connection.",
-                    color = Muted,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-            Switch(
-                maps.enabled,
-                onCheckedChange = controller::enable,
-                modifier =
-                    Modifier.semantics { contentDescription = "Enable offline map downloads" },
-            )
-        }
+        PreferenceRow(
+            "Offline maps",
+            "Download an area to use without a connection.",
+            maps.enabled,
+            controller::enable,
+            "Enable offline map downloads",
+        )
         if (maps.enabled) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Download over Wi-Fi only", Modifier.weight(1f))
-                Switch(
-                    maps.wifiOnly,
-                    controller::wifiOnly,
-                    modifier =
-                        Modifier.semantics { contentDescription = "Download maps over Wi-Fi only" },
-                )
-            }
+            PreferenceRow(
+                "Download over Wi-Fi only",
+                "Keep map downloads off mobile data",
+                maps.wifiOnly,
+                controller::wifiOnly,
+                "Download maps over Wi-Fi only",
+            )
             Text(
                 "Pan and zoom the map to choose an area. Downloads include street detail from zoom 6 to 14. Keep Velocity open while downloading.",
                 color = Muted,

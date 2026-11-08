@@ -34,26 +34,19 @@ internal fun GpsScreen(
     var showAll by rememberSaveable { mutableStateOf(false) }
     val satellites = if (state.gnssFresh) state.gnss.satellites else emptyList()
     LazyColumn(
-        modifier.padding(horizontal = 22.dp).testTag("gps-content"),
+        modifier.padding(horizontal = 20.dp).testTag("gps-content"),
         contentPadding = PaddingValues(vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item { Header("GPS connectivity", "Location quality and satellite reception.", state) }
         item {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Velocity tracking", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Turning it off pauses your journey. Resume manually when ready.",
-                        color = Muted,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                Switch(
+            GlassCard {
+                PreferenceRow(
+                    "Velocity tracking",
+                    "Turning it off pauses your journey. Resume manually when ready.",
                     state.trackingEnabled,
-                    onCheckedChange = onTracking,
-                    modifier =
-                        Modifier.semantics { contentDescription = "Velocity location tracking" },
+                    onTracking,
+                    "Velocity location tracking",
                 )
             }
         }

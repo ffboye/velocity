@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.myapplication.BuildConfig
+import com.example.myapplication.ui.PreferenceRow
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
@@ -34,10 +35,10 @@ fun UpdateSettings(
             )
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(18.dp),
         color = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)),
     ) {
         Column(
             Modifier.fillMaxWidth().padding(20.dp),
@@ -62,18 +63,13 @@ fun UpdateSettings(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 13.sp,
             )
-            Row {
-                Text(
-                    "Check automatically on launch",
-                    Modifier.weight(1f).padding(top = 14.dp),
-                    fontSize = 14.sp,
-                )
-                Switch(
-                    state.automatic,
-                    onCheckedChange = onAutomatic,
-                    modifier = Modifier.semantics { contentDescription = "Automatic update checks" },
-                )
-            }
+            PreferenceRow(
+                "Automatic updates",
+                "Check for a new version when Velocity opens",
+                state.automatic,
+                onAutomatic,
+                "Automatic update checks",
+            )
             Text(
                 "Last successful check: ${if (state.lastCheck == 0L) "Never" else DateFormat.getDateTimeInstance().format(Date(state.lastCheck))}",
                 fontSize = 12.sp,
