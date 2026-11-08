@@ -14,6 +14,13 @@ import androidx.core.content.ContextCompat
 import com.example.myapplication.MainActivity
 import com.example.myapplication.R
 import com.example.myapplication.VelocityApplication
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import kotlinx.coroutines.*
 
 class TrackingService : Service(), LocationListener {
@@ -21,6 +28,8 @@ class TrackingService : Service(), LocationListener {
         get() = (application as VelocityApplication).journeys
 
     private val locations by lazy { getSystemService(LocationManager::class.java) }
+    private val fused by lazy { LocationServices.getFusedLocationProviderClient(this) }
+    private var fusedCallback: LocationCallback? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var listening = false
     private var bound = false
@@ -113,6 +122,13 @@ class TrackingService : Service(), LocationListener {
                 repository.finish()
                 endForeground()
             }
+            RETRY -> {
+                disconnectGps()
+                repository.resetSignal()
+                connectGps()
+                // A bound-only speedometer must not become a permanently started service.
+                if (!foreground) stopSelf(startId)
+            }
         }
         return START_NOT_STICKY
     }
@@ -124,9 +140,12 @@ class TrackingService : Service(), LocationListener {
     @Suppress("MissingPermission")
     private fun connectGps() {
         val permitted = hasPermission()
-        val enabled = locations.isProviderEnabled(LocationManager.GPS_PROVIDER)
+        val enabled = locations.locationEnabled()
         repository.permissions(permitted, enabled)
-        if (!permitted || listening) return
+        if (!permitted || !enabled || listening) return
+        listening = true
+        repository.locationProblem(null)
+        var rawGps = false
         try {
             if (locations.allProviders.contains(LocationManager.GPS_PROVIDER)) {
                 locations.requestLocationUpdates(
@@ -136,24 +155,75 @@ class TrackingService : Service(), LocationListener {
                     this,
                     Looper.getMainLooper(),
                 )
-                listening = true
-            } else repository.message("This device has no GPS provider.")
+                rawGps = true
+            }
         } catch (_: SecurityException) {
             repository.permissions(false, enabled)
+        } catch (_: IllegalArgumentException) {
+            // Continue with fused location when a vendor GPS provider is unavailable.
+        }
+        if (
+            GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(this) ==
+                ConnectionResult.SUCCESS
+        ) {
+            val callback =
+                object : LocationCallback() {
+                    override fun onLocationResult(result: LocationResult) {
+                        if (fusedCallback === this) result.locations.forEach(::onLocationChanged)
+                    }
+                }
+            fusedCallback = callback
+            try {
+                val request =
+                    LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000L)
+                        .setMinUpdateIntervalMillis(1000L)
+                        .setMaxUpdateDelayMillis(1000L)
+                        .setMaxUpdateAgeMillis(0L)
+                        .setWaitForAccurateLocation(false)
+                        .build()
+                fused
+                    .requestLocationUpdates(request, callback, Looper.getMainLooper())
+                    .addOnFailureListener {
+                        if (fusedCallback === callback) {
+                            fused.removeLocationUpdates(callback)
+                            fusedCallback = null
+                            if (!rawGps) listening = false
+                            repository.locationProblem(
+                                if (rawGps)
+                                    "Using GPS fallback. Try outdoors, then tap Retry GPS if the signal does not return."
+                                else
+                                    "Android couldn't start location updates. Check precise location permission, then tap Retry GPS."
+                            )
+                        }
+                    }
+            } catch (_: SecurityException) {
+                fusedCallback = null
+                repository.permissions(false, enabled)
+            }
+        } else if (!rawGps) {
+            listening = false
+            repository.locationProblem(
+                "No location provider is available. Check device location settings, then tap Retry GPS."
+            )
         }
     }
 
     private fun disconnectGps() {
         locations.removeUpdates(this)
+        fusedCallback?.let { fused.removeLocationUpdates(it) }
+        fusedCallback = null
         listening = false
-        repository.permissions(
-            hasPermission(),
-            locations.isProviderEnabled(LocationManager.GPS_PROVIDER),
-        )
+        repository.permissions(hasPermission(), locations.locationEnabled())
     }
 
     override fun onLocationChanged(location: Location) {
-        if (!location.hasAccuracy()) return
+        if (
+            !listening ||
+                !hasPermission() ||
+                !locations.locationEnabled() ||
+                !location.hasAccuracy()
+        )
+            return
         val speed =
             if (
                 location.hasSpeed() &&
@@ -178,11 +248,12 @@ class TrackingService : Service(), LocationListener {
     }
 
     override fun onProviderDisabled(provider: String) {
-        repository.permissions(hasPermission(), false)
+        repository.permissions(hasPermission(), locations.locationEnabled())
     }
 
     override fun onProviderEnabled(provider: String) {
-        repository.permissions(hasPermission(), true)
+        repository.permissions(hasPermission(), locations.locationEnabled())
+        connectGps()
     }
 
     @Deprecated("Required on older Android versions")
@@ -250,6 +321,7 @@ class TrackingService : Service(), LocationListener {
         const val START = "velocity.START"
         const val PAUSE = "velocity.PAUSE"
         const val FINISH = "velocity.FINISH"
+        const val RETRY = "velocity.RETRY"
         private const val CHANNEL = "velocity_recording"
         private const val NOTIFICATION = 21
     }

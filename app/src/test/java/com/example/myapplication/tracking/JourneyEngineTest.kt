@@ -13,6 +13,40 @@ class JourneyEngineTest {
     ) = GpsFix(0.0, longitude, accuracy, time, 1700000000000 + time, speed)
 
     @Test
+    fun coarseStartupLocationIsVisibleButCannotRecordSpeedOrDistance() {
+        val engine = JourneyEngine()
+        engine.start("trip", 0, 1000)
+        val coarse = fix(1000, accuracy = 250f)
+        assertTrue(coarse.isFreshLocation(1000))
+        assertFalse(engine.accept(coarse, 1000))
+        assertEquals(0.0, engine.speed, 0.0)
+        assertTrue(engine.points.isEmpty())
+        assertFalse(coarse.isFreshLocation(6001))
+        assertFalse(coarse.copy(latitude = Double.NaN).isFreshLocation(1000))
+        assertFalse(coarse.copy(elapsedMillis = 1001).isFreshLocation(1000))
+        assertTrue(engine.accept(fix(2000), 2000))
+        assertEquals(10.0, engine.speed, 0.0)
+    }
+
+    @Test
+    fun retryPreservesJourneyAndDoesNotBridgeMissingLocation() {
+        val engine = JourneyEngine()
+        engine.start("trip", 0, 1000)
+        engine.accept(fix(1000), 1000)
+        engine.accept(fix(2000, 0.0001), 2000)
+        engine.tick(2000)
+        val before = engine.snapshot()!!
+        engine.resetSignal()
+        assertNull(engine.fix)
+        assertEquals(0.0, engine.speed, 0.0)
+        assertEquals(before, engine.snapshot())
+        engine.accept(fix(3000, 1.0), 3000)
+        assertEquals(before.distanceMeters, engine.distanceMeters, 0.0)
+        assertNotEquals(engine.points.first().segment, engine.points.last().segment)
+        assertEquals("trip", engine.finish(4000)!!.id)
+    }
+
+    @Test
     fun speedComesFromGpsAndIsConvertedCorrectly() {
         val engine = JourneyEngine()
         assertTrue(engine.accept(fix(1000), 1000))

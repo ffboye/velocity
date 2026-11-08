@@ -56,6 +56,8 @@ data class DriveState(
     val gpsEnabled: Boolean = false,
     val fix: GpsFix? = null,
     val hasSignal: Boolean = false,
+    val searchAccuracy: Float? = null,
+    val locationProblem: String? = null,
     val speed: Double = 0.0,
     val recording: Recording = Recording.IDLE,
     val durationMillis: Long = 0,
@@ -127,6 +129,13 @@ class JourneyEngine {
         if (recording == Recording.IDLE) return
         tick(now)
         recording = if (recording == Recording.RECORDING) Recording.PAUSED else Recording.RECORDING
+        anchor = null
+        segment++
+    }
+
+    fun resetSignal() {
+        fix = null
+        speed = 0.0
         anchor = null
         segment++
     }

@@ -30,6 +30,7 @@ class JourneyRepository(context: Context) {
     val state = mutable.asStateFlow()
     private var storageHealthy = true
     private var installationInProgress = false
+    private var observedAt = 0L
 
     // All recorder commands and installer handoffs run on the main thread.
     fun tryBeginInstallation(): Boolean {
@@ -85,6 +86,7 @@ class JourneyRepository(context: Context) {
     }
 
     fun permissions(granted: Boolean, enabled: Boolean) {
+        if (!granted || !enabled) resetSignal()
         mutable.update {
             it.copy(
                 permission = granted,
@@ -96,7 +98,23 @@ class JourneyRepository(context: Context) {
     }
 
     fun accept(fix: GpsFix) {
-        if (engine.accept(fix, SystemClock.elapsedRealtime())) publish()
+        val now = SystemClock.elapsedRealtime()
+        if (fix.isFreshLocation(now)) {
+            observedAt = now
+            mutable.update { it.copy(searchAccuracy = fix.accuracy, locationProblem = null) }
+        }
+        if (engine.accept(fix, now)) publish()
+    }
+
+    fun locationProblem(problem: String?) {
+        mutable.update { it.copy(locationProblem = problem) }
+    }
+
+    fun resetSignal() {
+        engine.resetSignal()
+        observedAt = 0L
+        mutable.update { it.copy(searchAccuracy = null, locationProblem = null) }
+        publish()
     }
 
     fun tick() {
@@ -109,6 +127,7 @@ class JourneyRepository(context: Context) {
         mutable.update {
             it.copy(
                 fix = engine.fix,
+                searchAccuracy = if (now - observedAt <= 5000) it.searchAccuracy else null,
                 hasSignal =
                     it.permission &&
                         it.gpsEnabled &&

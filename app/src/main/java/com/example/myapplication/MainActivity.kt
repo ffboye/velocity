@@ -170,6 +170,7 @@ class MainActivity : ComponentActivity() {
                     onPause = { command(TrackingService.PAUSE) },
                     onFinish = { command(TrackingService.FINISH) },
                     onEnableLocation = { requestLocation(start = false) },
+                    onRetryGps = { command(TrackingService.RETRY) },
                     onGpsSettings = {
                         startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
                     },
@@ -254,8 +255,7 @@ class MainActivity : ComponentActivity() {
     private fun refreshPermissions() {
         repository.permissions(
             hasLocation(),
-            getSystemService(LocationManager::class.java)
-                .isProviderEnabled(LocationManager.GPS_PROVIDER),
+            getSystemService(LocationManager::class.java).locationEnabled(),
         )
         repository.tick()
     }

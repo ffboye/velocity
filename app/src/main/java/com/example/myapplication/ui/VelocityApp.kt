@@ -53,6 +53,7 @@ fun VelocityApp(
     onExport: (Journey) -> Unit,
     onDismissMessage: () -> Unit,
     onRetrySave: () -> Unit,
+    onRetryGps: () -> Unit = {},
     updates: @Composable () -> Unit = {},
     onBackup: () -> Unit = {},
     onRestore: () -> Unit = {},
@@ -143,7 +144,15 @@ fun VelocityApp(
                     onBackup,
                     onRestore,
                 )
-            else -> Dashboard(state, content, onEnableLocation, onGpsSettings, onAppSettings)
+            else ->
+                Dashboard(
+                    state,
+                    content,
+                    onEnableLocation,
+                    onGpsSettings,
+                    onAppSettings,
+                    onRetryGps,
+                )
         }
     }
     state.journeys
@@ -190,6 +199,7 @@ private fun Dashboard(
     onLocation: () -> Unit,
     onGps: () -> Unit,
     onAppSettings: () -> Unit,
+    onRetryGps: () -> Unit,
 ) {
     Column(
         modifier.verticalScroll(rememberScrollState()).padding(horizontal = 22.dp),
@@ -230,7 +240,9 @@ private fun Dashboard(
                 when {
                     !state.permission -> "Ready when you are"
                     !state.gpsEnabled -> "GPS is turned off"
-                    !state.hasSignal -> "Finding your GPS signal…"
+                    !state.hasSignal ->
+                        if (state.searchAccuracy != null) "Improving location accuracy…"
+                        else "Finding your GPS signal…"
                     state.speedLimit > 0 && state.speed > state.speedLimit ->
                         "Above your speed reminder"
                     else -> "Live GPS speed · ±${state.fix?.accuracy?.roundToInt() ?: 0} m"
@@ -243,6 +255,24 @@ private fun Dashboard(
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             )
         }
+        if (state.permission && state.gpsEnabled && !state.hasSignal)
+            GlassCard {
+                Text("Waiting for accurate location", fontWeight = FontWeight.SemiBold)
+                Text(
+                    state.locationProblem
+                        ?: state.searchAccuracy?.let {
+                            "Location found · ±${it.roundToInt()} m. Waiting for an accuracy of 35 m or better before measuring speed."
+                        }
+                        ?: "No fresh location yet. Try outdoors with a clear view of the sky.",
+                    color = Muted,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                Row {
+                    TextButton(onClick = onRetryGps) { Text("Retry GPS") }
+                    TextButton(onClick = onGps) { Text("Location settings") }
+                }
+            }
         GlassCard {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 Stat(
