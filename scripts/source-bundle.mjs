@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 const roots = ['app/src', 'gradle', '.github/workflows', 'config', 'docs', 'scripts', 'release-notes'];
-const fixed = ['.gitattributes', '.gitignore', 'README.md', 'build.gradle.kts', 'settings.gradle.kts', 'gradle.properties', 'version.properties', 'update.properties', 'gradlew', 'gradlew.bat', 'app/build.gradle.kts'];
+const fixed = ['.gitattributes', '.gitignore', 'README.md', 'build.gradle.kts', 'settings.gradle.kts', 'gradle.properties', 'version.properties', 'update.properties', 'gradlew', 'gradlew.bat', 'app/build.gradle.kts', 'app/.gitignore'];
 const paths = [...fixed];
 function walk(path) {
   for (const entry of readdirSync(path, { withFileTypes: true })) {

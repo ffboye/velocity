@@ -31,12 +31,13 @@ class UpdateInstaller(
 }
 
 class UpdateSession {
-    private var started = false
+    private var lastAutomaticCheck: Long? = null
     private val dismissed = mutableSetOf<Long>()
 
-    fun startup(): Boolean {
-        if (started) return false
-        started = true
+    fun startup(nowMillis: Long = 0): Boolean {
+        val previous = lastAutomaticCheck
+        if (previous != null && nowMillis - previous in 0..59999) return false
+        lastAutomaticCheck = nowMillis
         return true
     }
 

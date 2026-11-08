@@ -388,6 +388,17 @@ class UpdateServiceTest {
         assertFalse(updateCompleted(4, 0))
     }
 
+    @Test
+    fun reopeningCanCheckAgainWithoutRepeatingDismissedVersion() {
+        val session = UpdateSession()
+        assertTrue(session.startup(1000))
+        session.dismiss(4)
+        assertFalse(session.startup(3000))
+        assertTrue(session.startup(61000))
+        assertFalse(session.prompt(4, false))
+        assertTrue(session.prompt(5, false))
+    }
+
     companion object {
         private val keys =
             KeyPairGenerator.getInstance("RSA").apply { initialize(3072) }.generateKeyPair()

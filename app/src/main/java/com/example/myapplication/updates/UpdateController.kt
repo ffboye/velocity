@@ -2,6 +2,7 @@ package com.example.myapplication.updates
 
 import android.content.Context
 import android.os.Build
+import android.os.SystemClock
 import android.util.Base64
 import com.example.myapplication.BuildConfig
 import com.example.myapplication.tracking.JourneyRepository
@@ -73,7 +74,13 @@ class UpdateController(context: Context, journeys: JourneyRepository) {
     }
 
     fun startup() {
-        if (session.startup() && prefs.automatic) check(manual = false)
+        if (
+            prefs.automatic &&
+                mutable.value.phase !in
+                    setOf(UpdatePhase.DOWNLOADING, UpdatePhase.VERIFYING, UpdatePhase.INSTALLING) &&
+                session.startup(SystemClock.elapsedRealtime())
+        )
+            check(manual = false)
     }
 
     fun automatic(value: Boolean) {
