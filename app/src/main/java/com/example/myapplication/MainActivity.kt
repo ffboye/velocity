@@ -213,6 +213,7 @@ class MainActivity : ComponentActivity() {
                     },
                     onUnit = repository::unit,
                     onAwake = repository::keepAwake,
+                    onGpsTabVisibility = repository::showGpsTab,
                     onLimit = repository::limit,
                     onDelete = repository::delete,
                     onDismissMessage = { repository.message(null) },

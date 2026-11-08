@@ -65,6 +65,7 @@ fun VelocityApp(
     onTracking: (Boolean) -> Unit = {},
     mapState: MapState = MapState(),
     mapController: OfflineMaps? = null,
+    onGpsTabVisibility: (Boolean) -> Unit = {},
 ) {
     val snackbar = remember { SnackbarHostState() }
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
@@ -170,27 +171,28 @@ fun VelocityApp(
                             }
                     }
                 NavigationBar(containerColor = VelocityColors.Navigation, tonalElevation = 0.dp) {
-                    listOf("Speed", "Journeys", "Map", "GPS", "Settings").forEachIndexed {
-                        index,
-                        label ->
-                        NavigationBarItem(
-                            selected = page == index,
-                            onClick = {
-                                selected = null
-                                onPage(index)
-                            },
-                            icon = { NavGlyph(index, page == index) },
-                            label = { Text(label, fontSize = 11.sp) },
-                            colors =
-                                NavigationBarItemDefaults.colors(
-                                    selectedIconColor = Pink,
-                                    selectedTextColor = Pink,
-                                    indicatorColor = Pink.copy(alpha = 0.12f),
-                                    unselectedIconColor = Muted,
-                                    unselectedTextColor = Muted,
-                                ),
-                        )
-                    }
+                    listOf("Speed", "Journeys", "Map", "GPS", "Settings")
+                        .withIndex()
+                        .filter { it.index != 3 || state.showGpsTab }
+                        .forEach { (index, label) ->
+                            NavigationBarItem(
+                                selected = page == index,
+                                onClick = {
+                                    selected = null
+                                    onPage(index)
+                                },
+                                icon = { NavGlyph(index, page == index) },
+                                label = { Text(label, fontSize = 11.sp) },
+                                colors =
+                                    NavigationBarItemDefaults.colors(
+                                        selectedIconColor = Pink,
+                                        selectedTextColor = Pink,
+                                        indicatorColor = Pink.copy(alpha = 0.12f),
+                                        unselectedIconColor = Muted,
+                                        unselectedTextColor = Muted,
+                                    ),
+                            )
+                        }
                 }
             }
         },
@@ -230,6 +232,7 @@ fun VelocityApp(
                         updates,
                         onBackup,
                         onRestore,
+                        onGpsTabVisibility,
                     )
                 else ->
                     Dashboard(
@@ -651,6 +654,7 @@ private fun SettingsScreen(
     updates: @Composable () -> Unit,
     onBackup: () -> Unit,
     onRestore: () -> Unit,
+    onGpsTabVisibility: (Boolean) -> Unit,
 ) {
     Column(
         modifier.verticalScroll(rememberScrollState()).padding(22.dp),
@@ -711,6 +715,22 @@ private fun SettingsScreen(
         }
         GlassCard {
             Eyebrow("LOCATION & PRIVACY")
+            Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Show GPS tab")
+                    Text(
+                        "GPS controls are also available from the speedometer's signal indicator.",
+                        fontSize = 12.sp,
+                        color = Muted,
+                    )
+                }
+                Switch(
+                    state.showGpsTab,
+                    onCheckedChange = onGpsTabVisibility,
+                    modifier = Modifier.semantics { contentDescription = "Show GPS tab" },
+                )
+            }
+            HorizontalDivider(Modifier.padding(top = 16.dp), color = Border)
             Text(
                 if (state.permission) "Precise location enabled"
                 else "Precise location not enabled",
