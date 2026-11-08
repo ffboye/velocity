@@ -11,13 +11,15 @@ import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme =
     darkColorScheme(
-        primary = androidx.compose.ui.graphics.Color(0xFFFF66B2),
+        primary = VelocityColors.Accent,
         onPrimary = androidx.compose.ui.graphics.Color(0xFF31001C),
         secondary = androidx.compose.ui.graphics.Color(0xFFD4AEFF),
-        background = androidx.compose.ui.graphics.Color(0xFF100D14),
-        surface = androidx.compose.ui.graphics.Color(0xFF1D1623),
-        onSurface = androidx.compose.ui.graphics.Color(0xFFF7EAF2),
-        onSurfaceVariant = androidx.compose.ui.graphics.Color(0xFFCCBDCB),
+        background = VelocityColors.Background,
+        onBackground = VelocityColors.Text,
+        surface = VelocityColors.Surface,
+        onSurface = VelocityColors.Text,
+        onSurfaceVariant = VelocityColors.Muted,
+        outline = VelocityColors.Outline,
     )
 
 private val LightColorScheme =

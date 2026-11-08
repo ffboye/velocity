@@ -87,15 +87,31 @@ class RecordingIntegrationTest {
                 repository.state.value.distanceMeters > beforeBackground + 2.0
             }
             compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+            val beforeLocationOff = repository.state.value.distanceMeters
+            shell("cmd location set-location-enabled false")
+            compose.waitUntil(10000) { !repository.state.value.gpsEnabled }
+            assertFalse(repository.state.value.hasSignal)
+            assertFalse(repository.state.value.gnssFresh)
+            assertEquals(Recording.RECORDING, repository.state.value.recording)
+            shell("cmd location set-location-enabled true")
+            compose.waitUntil(10000) { repository.state.value.gpsEnabled }
+            Thread.sleep(1100)
+            inject(0.00045)
+            compose.waitUntil(10000) { repository.state.value.hasSignal }
+            assertEquals(beforeLocationOff, repository.state.value.distanceMeters, 0.01)
+            // Play services can show its own LocationOffWarningActivity after the toggle.
+            // Bring this test's existing Activity back to the foreground before UI actions.
+            shell("am start -f 0x20000 -n ${context.packageName}/.MainActivity")
+            compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
             val beforePause = repository.state.value.distanceMeters
+            compose.onNodeWithText("GPS", useUnmergedTree = true).performClick()
+            compose.onNodeWithText("GPS connectivity").assertIsDisplayed()
             compose.onNodeWithText("Pause", useUnmergedTree = true).performClick()
             compose.waitUntil(10000) { repository.state.value.recording == Recording.PAUSED }
             compose.runOnIdle { assertFalse(repository.tryBeginInstallation()) }
             Thread.sleep(1100)
-            inject(0.00045)
-            compose.waitUntil(10000) {
-                repository.state.value.fix?.longitude == longitude + 0.00045
-            }
+            inject(0.0006)
+            compose.waitUntil(10000) { repository.state.value.fix?.longitude == longitude + 0.0006 }
             assertEquals(beforePause, repository.state.value.distanceMeters, 0.01)
             compose.onNodeWithText("Resume", useUnmergedTree = true).performClick()
             compose.waitUntil(10000) { repository.state.value.recording == Recording.RECORDING }
@@ -116,12 +132,19 @@ class RecordingIntegrationTest {
             }
             assertEquals(Recording.IDLE, repository.state.value.recording)
             compose.runOnIdle {
+                repository.persist()
+                assertTrue(repository.state.value.saving)
+                assertFalse(repository.tryBeginInstallation())
+            }
+            compose.waitUntil(10000) { !repository.state.value.saving }
+            compose.runOnIdle {
                 assertTrue(repository.tryBeginInstallation())
                 assertFalse(repository.start())
                 repository.endInstallation()
             }
             compose.runOnIdle { repository.delete(saved.id) }
         } finally {
+            shell("cmd location set-location-enabled true")
             compose.runOnIdle {
                 if (repository.state.value.recording != Recording.IDLE) repository.finish()
             }

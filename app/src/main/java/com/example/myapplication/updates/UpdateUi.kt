@@ -110,12 +110,13 @@ fun UpdateSettings(
 @Composable
 fun UpdateDialog(
     state: UpdateState,
-    tripActive: Boolean,
+    installationBlocked: Boolean,
     onLater: () -> Unit,
     onRetry: () -> Unit,
     onDownload: () -> Unit,
     onCancel: () -> Unit,
     onInstall: () -> Unit,
+    blockingMessage: String? = null,
 ) {
     if (!state.dialog) return
     Dialog(onDismissRequest = onLater) {
@@ -174,9 +175,10 @@ fun UpdateDialog(
                         modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                     )
                 }
-                if (tripActive)
+                if (installationBlocked)
                     Text(
-                        "Installation waits until your journey is finished, including paused journeys.",
+                        blockingMessage
+                            ?: "Installation waits until your journey is finished, including paused journeys.",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -189,7 +191,7 @@ fun UpdateDialog(
                     UpdatePhase.READY ->
                         Button(
                             onInstall,
-                            enabled = !tripActive,
+                            enabled = !installationBlocked,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text("Install update")

@@ -197,7 +197,7 @@ class UpdateController(context: Context, journeys: JourneyRepository) {
                             it.copy(
                                 phase = UpdatePhase.READY,
                                 message =
-                                    "Finish your journey before installing. The verified update will wait here.",
+                                    "Finish your journey and wait for its changes to be saved before installing. The verified update will wait here.",
                             )
                         }
                 } catch (e: CancellationException) {

@@ -2,7 +2,10 @@ package com.example.myapplication.tracking
 
 import android.Manifest
 import android.app.*
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.location.Location
@@ -11,6 +14,8 @@ import android.location.LocationManager
 import android.os.*
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import androidx.core.location.GnssStatusCompat
+import androidx.core.location.LocationManagerCompat
 import com.example.myapplication.MainActivity
 import com.example.myapplication.R
 import com.example.myapplication.VelocityApplication
@@ -30,14 +35,34 @@ class TrackingService : Service(), LocationListener {
     private val locations by lazy { getSystemService(LocationManager::class.java) }
     private val fused by lazy { LocationServices.getFusedLocationProviderClient(this) }
     private var fusedCallback: LocationCallback? = null
+    private var satelliteCallback: GnssStatusCompat.Callback? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var listening = false
     private var bound = false
     private var foreground = false
     private var seconds = 0
+    private val locationChanges =
+        object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                refreshLocation()
+            }
+        }
+
+    inner class TrackingBinder : Binder() {
+        fun refresh() = refreshLocation()
+    }
 
     override fun onCreate() {
         super.onCreate()
+        ContextCompat.registerReceiver(
+            this,
+            locationChanges,
+            IntentFilter().apply {
+                addAction(LocationManager.PROVIDERS_CHANGED_ACTION)
+                addAction(LocationManager.MODE_CHANGED_ACTION)
+            },
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
         if (Build.VERSION.SDK_INT >= 26) {
             getSystemService(NotificationManager::class.java)
                 .createNotificationChannel(
@@ -66,7 +91,7 @@ class TrackingService : Service(), LocationListener {
     override fun onBind(intent: Intent?): IBinder {
         bound = true
         connectGps()
-        return Binder()
+        return TrackingBinder()
     }
 
     override fun onRebind(intent: Intent?) {
@@ -137,6 +162,56 @@ class TrackingService : Service(), LocationListener {
         ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) ==
             PackageManager.PERMISSION_GRANTED
 
+    private fun refreshLocation() {
+        repository.permissions(hasPermission(), locations.locationEnabled())
+        if (!hasPermission() || !locations.locationEnabled()) disconnectGps()
+        else if (bound || repository.state.value.recording != Recording.IDLE) connectGps()
+    }
+
+    @Suppress("MissingPermission")
+    private fun connectSatellites() {
+        val callback =
+            object : GnssStatusCompat.Callback() {
+                private fun current() =
+                    satelliteCallback === this &&
+                        listening &&
+                        hasPermission() &&
+                        locations.locationEnabled()
+
+                override fun onStarted() {
+                    if (current()) repository.receiver(ReceiverStatus.LISTENING)
+                }
+
+                override fun onStopped() {
+                    if (current()) repository.receiver(ReceiverStatus.IDLE)
+                }
+
+                override fun onFirstFix(ttffMillis: Int) {
+                    if (current()) repository.firstSatelliteFix(ttffMillis)
+                }
+
+                override fun onSatelliteStatusChanged(status: GnssStatusCompat) {
+                    if (!current()) return
+                    repository.satellites(status.readSatellites())
+                }
+            }
+        satelliteCallback = callback
+        val registered =
+            try {
+                LocationManagerCompat.registerGnssStatusCallback(
+                    locations,
+                    ContextCompat.getMainExecutor(this),
+                    callback,
+                )
+            } catch (_: RuntimeException) {
+                false
+            }
+        if (!registered) satelliteCallback = null
+        repository.receiver(
+            if (registered) ReceiverStatus.LISTENING else ReceiverStatus.UNAVAILABLE
+        )
+    }
+
     @Suppress("MissingPermission")
     private fun connectGps() {
         val permitted = hasPermission()
@@ -145,6 +220,7 @@ class TrackingService : Service(), LocationListener {
         if (!permitted || !enabled || listening) return
         listening = true
         repository.locationProblem(null)
+        connectSatellites()
         var rawGps = false
         try {
             if (locations.allProviders.contains(LocationManager.GPS_PROVIDER)) {
@@ -158,7 +234,9 @@ class TrackingService : Service(), LocationListener {
                 rawGps = true
             }
         } catch (_: SecurityException) {
+            disconnectGps()
             repository.permissions(false, enabled)
+            return
         } catch (_: IllegalArgumentException) {
             // Continue with fused location when a vendor GPS provider is unavailable.
         }
@@ -169,7 +247,8 @@ class TrackingService : Service(), LocationListener {
             val callback =
                 object : LocationCallback() {
                     override fun onLocationResult(result: LocationResult) {
-                        if (fusedCallback === this) result.locations.forEach(::onLocationChanged)
+                        if (fusedCallback === this)
+                            result.locations.forEach { acceptLocation(it, LocationSource.FUSED) }
                     }
                 }
             fusedCallback = callback
@@ -197,7 +276,7 @@ class TrackingService : Service(), LocationListener {
                         }
                     }
             } catch (_: SecurityException) {
-                fusedCallback = null
+                disconnectGps()
                 repository.permissions(false, enabled)
             }
         } else if (!rawGps) {
@@ -209,14 +288,21 @@ class TrackingService : Service(), LocationListener {
     }
 
     private fun disconnectGps() {
+        listening = false
         locations.removeUpdates(this)
         fusedCallback?.let { fused.removeLocationUpdates(it) }
         fusedCallback = null
-        listening = false
+        satelliteCallback?.let { LocationManagerCompat.unregisterGnssStatusCallback(locations, it) }
+        satelliteCallback = null
+        repository.receiver(ReceiverStatus.IDLE)
         repository.permissions(hasPermission(), locations.locationEnabled())
     }
 
     override fun onLocationChanged(location: Location) {
+        acceptLocation(location, LocationSource.GPS)
+    }
+
+    private fun acceptLocation(location: Location, source: LocationSource) {
         if (
             !listening ||
                 !hasPermission() ||
@@ -243,17 +329,17 @@ class TrackingService : Service(), LocationListener {
                 speed,
                 if (location.hasAltitude()) location.altitude else null,
                 if (location.hasBearing()) location.bearing else null,
+                source,
             )
         )
     }
 
     override fun onProviderDisabled(provider: String) {
-        repository.permissions(hasPermission(), locations.locationEnabled())
+        refreshLocation()
     }
 
     override fun onProviderEnabled(provider: String) {
-        repository.permissions(hasPermission(), locations.locationEnabled())
-        connectGps()
+        refreshLocation()
     }
 
     @Deprecated("Required on older Android versions")
@@ -313,6 +399,7 @@ class TrackingService : Service(), LocationListener {
         if (repository.state.value.recording != Recording.IDLE)
             repository.finish(interrupted = true)
         disconnectGps()
+        unregisterReceiver(locationChanges)
         scope.cancel()
         super.onDestroy()
     }

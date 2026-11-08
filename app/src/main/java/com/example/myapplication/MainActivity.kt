@@ -48,14 +48,19 @@ class MainActivity : ComponentActivity() {
         get() = (application as VelocityApplication).journeys
 
     private var binding = false
+    private var tracking: TrackingService.TrackingBinder? = null
     private var pendingStart = false
     private var exportId: String? = null
     private val connection =
         object : ServiceConnection {
-            override fun onServiceConnected(name: ComponentName?, service: IBinder?) {}
+            override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+                tracking = service as? TrackingService.TrackingBinder
+                tracking?.refresh()
+            }
 
             override fun onServiceDisconnected(name: ComponentName?) {
                 binding = false
+                tracking = null
             }
         }
     private val locationPermission =
@@ -210,12 +215,25 @@ class MainActivity : ComponentActivity() {
                 )
                 UpdateDialog(
                     updateState,
-                    state.loading || state.recording != Recording.IDLE,
+                    state.loading ||
+                        state.saving ||
+                        state.saveFailed ||
+                        state.recording != Recording.IDLE,
                     onLater = updater::later,
                     onRetry = { updater.check() },
                     onDownload = updater::download,
                     onCancel = updater::cancel,
                     onInstall = ::installUpdate,
+                    blockingMessage =
+                        when {
+                            state.saveFailed ->
+                                "Save your journey changes before installing an update. Free some storage, then use Retry save."
+                            state.saving ->
+                                "Finishing the journey save. Installation will be available when it completes."
+                            state.loading ->
+                                "Wait for your journeys to finish loading before installing."
+                            else -> null
+                        },
                 )
             }
         }
@@ -238,6 +256,7 @@ class MainActivity : ComponentActivity() {
         if (binding) {
             unbindService(connection)
             binding = false
+            tracking = null
         }
         super.onStop()
     }
@@ -261,6 +280,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun bindGps() {
+        if (binding) tracking?.refresh()
         if (!binding && hasLocation())
             binding =
                 bindService(Intent(this, TrackingService::class.java), connection, BIND_AUTO_CREATE)

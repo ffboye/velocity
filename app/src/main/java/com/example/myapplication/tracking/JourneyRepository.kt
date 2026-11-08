@@ -15,7 +15,11 @@ class JourneyRepository(context: Context) {
         context.getSharedPreferences("velocity_preferences", Context.MODE_PRIVATE)
     private val storage = JourneyStorage(context.filesDir)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val saves = Channel<StoredJourneys>(Channel.CONFLATED)
+
+    private data class SaveRequest(val revision: Long, val snapshot: StoredJourneys)
+
+    private val saves = Channel<SaveRequest>(Channel.CONFLATED)
+    private var saveRevision = 0L
     private val engine = JourneyEngine()
     private val mutable =
         MutableStateFlow(
@@ -34,7 +38,13 @@ class JourneyRepository(context: Context) {
 
     // All recorder commands and installer handoffs run on the main thread.
     fun tryBeginInstallation(): Boolean {
-        if (mutable.value.loading || engine.recording != Recording.IDLE || installationInProgress)
+        if (
+            mutable.value.loading ||
+                mutable.value.saving ||
+                mutable.value.saveFailed ||
+                engine.recording != Recording.IDLE ||
+                installationInProgress
+        )
             return false
         installationInProgress = true
         return true
@@ -75,10 +85,18 @@ class JourneyRepository(context: Context) {
             }
         }
         scope.launch {
-            for (snapshot in saves) {
+            for (request in saves) {
                 try {
-                    withContext(Dispatchers.IO) { storage.save(snapshot.journeys, snapshot.active) }
+                    withContext(Dispatchers.IO) {
+                        storage.save(request.snapshot.journeys, request.snapshot.active)
+                    }
+                    mutable.update {
+                        it.copy(saveFailed = false, saving = request.revision != saveRevision)
+                    }
                 } catch (_: Exception) {
+                    mutable.update {
+                        it.copy(saveFailed = true, saving = request.revision != saveRevision)
+                    }
                     message("Couldn't save journey data. Free some storage, then tap Retry save.")
                 }
             }
@@ -86,7 +104,10 @@ class JourneyRepository(context: Context) {
     }
 
     fun permissions(granted: Boolean, enabled: Boolean) {
-        if (!granted || !enabled) resetSignal()
+        if (!granted || !enabled) {
+            resetSignal()
+            receiver(ReceiverStatus.IDLE)
+        }
         mutable.update {
             it.copy(
                 permission = granted,
@@ -110,6 +131,29 @@ class JourneyRepository(context: Context) {
         mutable.update { it.copy(locationProblem = problem) }
     }
 
+    fun receiver(status: ReceiverStatus) {
+        mutable.update { it.copy(gnss = GnssState(status), gnssFresh = false) }
+    }
+
+    fun satellites(readings: List<Satellite>) {
+        if (!mutable.value.permission || !mutable.value.gpsEnabled) return
+        mutable.update {
+            it.copy(
+                gnss =
+                    it.gnss.copy(
+                        status = ReceiverStatus.LISTENING,
+                        satellites = GnssState.normalize(readings),
+                        updatedAt = SystemClock.elapsedRealtime(),
+                    ),
+                gnssFresh = true,
+            )
+        }
+    }
+
+    fun firstSatelliteFix(millis: Int) {
+        if (millis >= 0) mutable.update { it.copy(gnss = it.gnss.copy(firstFixMillis = millis)) }
+    }
+
     fun resetSignal() {
         engine.resetSignal()
         observedAt = 0L
@@ -127,6 +171,8 @@ class JourneyRepository(context: Context) {
         mutable.update {
             it.copy(
                 fix = engine.fix,
+                fixAgeMillis = engine.fix?.let { p -> (now - p.elapsedMillis).coerceAtLeast(0) },
+                gnssFresh = it.permission && it.gpsEnabled && it.gnss.isFresh(now),
                 searchAccuracy = if (now - observedAt <= 5000) it.searchAccuracy else null,
                 hasSignal =
                     it.permission &&
@@ -183,8 +229,15 @@ class JourneyRepository(context: Context) {
     }
 
     fun persist() {
-        if (storageHealthy && !mutable.value.loading)
-            saves.trySend(StoredJourneys(mutable.value.journeys, engine.snapshot()))
+        if (storageHealthy && !mutable.value.loading) {
+            mutable.update { it.copy(saving = true) }
+            saves.trySend(
+                SaveRequest(
+                    ++saveRevision,
+                    StoredJourneys(mutable.value.journeys, engine.snapshot()),
+                )
+            )
+        }
     }
 
     fun delete(id: String) {

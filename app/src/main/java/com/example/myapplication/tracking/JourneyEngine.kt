@@ -27,6 +27,7 @@ data class GpsFix(
     val speed: Double? = null,
     val altitude: Double? = null,
     val bearing: Float? = null,
+    val source: LocationSource = LocationSource.GPS,
 )
 
 data class RoutePoint(
@@ -58,6 +59,11 @@ data class DriveState(
     val hasSignal: Boolean = false,
     val searchAccuracy: Float? = null,
     val locationProblem: String? = null,
+    val fixAgeMillis: Long? = null,
+    val gnss: GnssState = GnssState(),
+    val gnssFresh: Boolean = false,
+    val saveFailed: Boolean = false,
+    val saving: Boolean = false,
     val speed: Double = 0.0,
     val recording: Recording = Recording.IDLE,
     val durationMillis: Long = 0,
