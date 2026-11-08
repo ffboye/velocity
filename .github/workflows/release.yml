@@ -67,6 +67,20 @@ jobs:
           actual=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/certificate.txt")
           expected=$(tr -d '\r\n' < config/android-signing-sha256.txt)
           test "${actual,,}" = "${expected,,}"
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Launch and exercise the actual signed APK
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: ANDROID_SERIAL=emulator-5554 APK_PATH=app/build/outputs/apk/release/app-release.apk node scripts/smoke-release.mjs
       - name: Authenticate previous release and generate new metadata
         env:
           GH_TOKEN: ${{ github.token }}

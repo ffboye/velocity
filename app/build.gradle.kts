@@ -55,8 +55,10 @@ android {
         release {
             if (signingPath != null) signingConfig = signingConfigs.getByName("distribution")
             optimization {
-                enable = true
-                packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
+                // Partial library optimization generated an illegal Kotlin inheritance chain
+                // in the signed 1.3.0 APK. Ship the original bytecode until release-runtime
+                // coverage establishes a safe optimizer configuration.
+                enable = false
             }
         }
     }
