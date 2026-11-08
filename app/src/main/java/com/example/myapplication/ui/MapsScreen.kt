@@ -43,7 +43,7 @@ internal fun MapsScreen(
         modifier.verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        Header("Your map", "Saved routes on a street map.", state)
+        Header("Your map")
         Box {
             OutlinedButton(
                 onClick = { chooser = true },
@@ -90,15 +90,10 @@ internal fun MapsScreen(
             onArea = { area = it },
             onFit = { focusArea = null },
         )
-        Text(
-            "Green: start · Dark: finish. Route gaps are kept separate. Map data © OpenStreetMap contributors · OpenFreeMap.",
-            color = Muted,
-            style = MaterialTheme.typography.bodySmall,
-        )
         HorizontalDivider(color = Border)
         PreferenceRow(
             "Offline maps",
-            "Download an area to use without a connection.",
+            "",
             maps.enabled,
             controller::enable,
             "Enable offline map downloads",
@@ -106,15 +101,10 @@ internal fun MapsScreen(
         if (maps.enabled) {
             PreferenceRow(
                 "Download over Wi-Fi only",
-                "Keep map downloads off mobile data",
+                "",
                 maps.wifiOnly,
                 controller::wifiOnly,
                 "Download maps over Wi-Fi only",
-            )
-            Text(
-                "Pan and zoom the map to choose an area. Downloads include street detail from zoom 6 to 14. Keep Velocity open while downloading.",
-                color = Muted,
-                style = MaterialTheme.typography.bodyMedium,
             )
             OutlinedTextField(
                 areaName,
@@ -126,8 +116,8 @@ internal fun MapsScreen(
             val candidate = area
             Text(
                 if (candidate?.downloadable == true)
-                    "Estimated download: ${mb(candidate.estimatedBytes)} MB. Keep at least ${mb(candidate.estimatedBytes + 50_000_000)} MB free. Actual size is shown below."
-                else "Zoom in to choose a smaller area. Each download is limited to 40 MB.",
+                    "~${mb(candidate.estimatedBytes)} MB · ${mb(candidate.estimatedBytes + 50_000_000)} MB free required"
+                else "Zoom in · 40 MB maximum per area",
                 color = Muted,
                 style = MaterialTheme.typography.bodySmall,
             )
@@ -176,7 +166,7 @@ internal fun MapsScreen(
             }
         } else if (maps.areas.isNotEmpty())
             Text(
-                "Your downloaded areas are kept. Turn offline maps on to manage or delete them.",
+                "Downloaded areas kept. Enable offline maps to manage them.",
                 color = Muted,
                 style = MaterialTheme.typography.bodySmall,
             )

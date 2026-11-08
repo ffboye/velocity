@@ -30,11 +30,7 @@ internal fun SpeedGraph(journey: Journey, unit: SpeedUnit) {
     var selected by remember(journey.id) { mutableStateOf<SpeedSample?>(null) }
     Text("Speed over recorded time", style = MaterialTheme.typography.titleMedium)
     if (journey.samples.isEmpty()) {
-        Text(
-            "This journey was saved before speed graphs were added. New recordings include a graph.",
-            color = Muted,
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        Text("No speed readings saved.", color = Muted, style = MaterialTheme.typography.bodyMedium)
         return
     }
     val maximum =
@@ -43,14 +39,14 @@ internal fun SpeedGraph(journey: Journey, unit: SpeedUnit) {
             ceil(journey.samples.maxOf { it.metersPerSecond } * unit.multiplier / 10.0) * 10.0,
         )
     val duration = max(1000L, journey.durationMillis)
-    Text(
-        selected?.let {
-            "${(it.metersPerSecond * unit.multiplier).roundToInt()} ${unit.label} at ${graphTime(it.recordedMillis)}"
-        } ?: "Tap the graph for a reading. Gaps in reception and manual pauses aren't connected.",
-        color = Muted,
-        style = MaterialTheme.typography.bodySmall,
-        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-    )
+    selected?.let { reading ->
+        Text(
+            "${(reading.metersPerSecond * unit.multiplier).roundToInt()} ${unit.label} at ${graphTime(reading.recordedMillis)}",
+            color = Muted,
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+        )
+    }
     Text(
         "${maximum.toInt()} ${unit.label}",
         color = Muted,

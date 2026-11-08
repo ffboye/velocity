@@ -38,12 +38,12 @@ internal fun GpsScreen(
         contentPadding = PaddingValues(vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item { Header("GPS connectivity", "Location quality and satellite reception.", state) }
+        item { Header("GPS connectivity") }
         item {
             GlassCard {
                 PreferenceRow(
                     "Velocity tracking",
-                    "Turning it off pauses your journey. Resume manually when ready.",
+                    "Off pauses your journey. Resume manually.",
                     state.trackingEnabled,
                     onTracking,
                     "Velocity location tracking",
@@ -73,26 +73,22 @@ internal fun GpsScreen(
                             liveRegion = LiveRegionMode.Polite
                         },
                 )
-                Text(
-                    when {
-                        !state.trackingEnabled ->
-                            "Velocity isn't requesting location. Android's device-wide location setting is unchanged."
-                        !state.permission ->
-                            "Allow precise location while using Velocity to measure speed and see satellite details."
-                        !state.gpsEnabled ->
-                            "Turn on location in Android, then return here. Velocity will reconnect automatically."
-                        state.locationQuality == LocationQuality.WEAK ->
-                            "Location is less accurate or getting old. Move to a clearer view of the sky. Only fresh fixes within 35 m are used for recording."
-                        state.hasSignal ->
-                            "Your phone is providing a fresh location for live speed and journey recording."
-                        else ->
-                            state.locationProblem
-                                ?: "Move outdoors with a clear view of the sky. Buildings and indoor spaces can weaken satellite signals."
-                    },
-                    color = Muted,
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(top = 10.dp),
-                )
+                if (!state.hasSignal || state.locationQuality == LocationQuality.WEAK)
+                    Text(
+                        when {
+                            !state.trackingEnabled -> "Journey tracking is paused."
+                            !state.permission -> "Allow precise location."
+                            !state.gpsEnabled -> "Turn on device location."
+                            state.locationQuality == LocationQuality.WEAK ->
+                                "Move to a clearer view of the sky."
+                            else ->
+                                state.locationProblem
+                                    ?: "Try outdoors with a clear view of the sky."
+                        },
+                        color = Muted,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(top = 10.dp),
+                    )
                 HorizontalDivider(Modifier.padding(vertical = 18.dp), color = Border)
                 Row(Modifier.fillMaxWidth()) {
                     Stat(
@@ -155,20 +151,15 @@ internal fun GpsScreen(
                 }
                 Text(
                     when {
-                        !state.permission ->
-                            "Satellite details require precise location permission."
-                        !state.gpsEnabled ->
-                            "Satellite reception resumes when device location is on."
+                        !state.permission -> "Precise location required"
+                        !state.gpsEnabled -> "Device location is off"
                         state.gnssFresh && satellites.isNotEmpty() ->
                             "Live receiver data · ${satellites.map { it.system }.distinct().joinToString(" · ")}"
-                        state.gnssFresh ->
-                            "The receiver currently reports no satellites. Try a clearer view of the sky."
+                        state.gnssFresh -> "No satellites reported"
                         state.gnss.status == ReceiverStatus.UNAVAILABLE ->
-                            "This device isn't reporting satellite details. Fused location can still work."
-                        state.gnss.updatedAt != null ->
-                            "Satellite data is out of date. Waiting for a new receiver report."
-                        else ->
-                            "Waiting for the phone's satellite report. A fused location may be available before satellite details arrive."
+                            "Satellite details unavailable"
+                        state.gnss.updatedAt != null -> "Satellite report expired"
+                        else -> "Waiting for satellite report"
                     },
                     fontSize = 13.sp,
                     color = Muted,
@@ -193,11 +184,7 @@ internal fun GpsScreen(
                             fontSize = 20.sp,
                             fontWeight = FontWeight.SemiBold,
                         )
-                        Text(
-                            "${satellites.size} satellites · higher bars mean stronger signals",
-                            color = Muted,
-                            fontSize = 12.sp,
-                        )
+                        Text("${satellites.size} satellites", color = Muted, fontSize = 12.sp)
                     }
                 }
             }
@@ -216,17 +203,10 @@ internal fun GpsScreen(
                         )
                     }
                 }
-            item {
-                Text(
-                    "C/N₀ is signal strength relative to noise, shown on a 0–60 dB-Hz scale. Green means the satellite was used in the receiver's latest fix. Signal strength alone doesn't determine location accuracy.",
-                    color = Muted,
-                    fontSize = 12.sp,
-                )
-            }
         }
         item {
             GlassCard {
-                Eyebrow("HOW VELOCITY FINDS YOU")
+                Eyebrow("LOCATION DETAILS")
                 DetailRow(
                     "Location source",
                     if (state.hasSignal) state.fix!!.source.label else "Waiting for a fresh fix",
@@ -243,12 +223,6 @@ internal fun GpsScreen(
                         String.format(Locale.getDefault(), "%.1f s", it / 1000.0),
                     )
                 }
-                Text(
-                    "Android can combine GPS, Wi-Fi, mobile networks and sensors. It doesn't report each source's contribution to Velocity. Satellite details describe the receiver, while accuracy describes the location used by the app.",
-                    color = Muted,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(top = 14.dp),
-                )
                 TextButton(onLocationSettings) { Text("Manage location services") }
             }
         }

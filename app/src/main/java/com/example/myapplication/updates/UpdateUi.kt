@@ -49,23 +49,15 @@ fun UpdateSettings(
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.semantics { heading() },
             )
-            Text(
-                "Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · Stable",
-                fontSize = 14.sp,
-            )
+            Text("Version ${BuildConfig.VERSION_NAME} · Stable", fontSize = 14.sp)
             if (BuildConfig.DEBUG)
                 Text(
                     "This test build can back up your journeys. Install the release-signed build to receive production upgrades.",
                     fontSize = 13.sp,
                 )
-            Text(
-                "ffboye/velocity · GitHub Releases",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 13.sp,
-            )
             PreferenceRow(
                 "Automatic updates",
-                "Check for a new version when Velocity opens",
+                "",
                 state.automatic,
                 onAutomatic,
                 "Automatic update checks",

@@ -28,10 +28,6 @@ internal fun JourneyEditor(
                 Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text(
-                    "Your route and statistics stay on this device. A blank name uses the journey's date and time.",
-                    color = Muted,
-                )
                 OutlinedTextField(
                     name,
                     { name = it.take(100) },

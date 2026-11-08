@@ -29,7 +29,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.example.myapplication.BuildConfig
 import com.example.myapplication.maps.*
 import com.example.myapplication.tracking.*
 import com.example.myapplication.ui.theme.VelocityColors
@@ -319,11 +318,11 @@ private fun Dashboard(
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         Spacer(Modifier.height(16.dp))
-        Header("Speedometer", "Live speed and recorded distance.", state, onConnectivity)
+        Header("Speedometer", state, onConnectivity)
         if (!state.trackingEnabled)
             GlassCard {
                 Text("Tracking is off", style = MaterialTheme.typography.titleMedium)
-                Text("Turn tracking on in GPS when you're ready to record.", color = Muted)
+                Text("Resume tracking in GPS controls.", color = Muted)
                 TextButton(onConnectivity) { Text("Open GPS controls") }
             }
         Column(
@@ -331,13 +330,11 @@ private fun Dashboard(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Spacer(Modifier.height(6.dp))
-            Eyebrow(
-                when (state.recording) {
-                    Recording.RECORDING -> "JOURNEY IN PROGRESS"
-                    Recording.PAUSED -> "JOURNEY PAUSED"
-                    else -> "READY TO RECORD"
-                }
-            )
+            if (state.recording != Recording.IDLE)
+                Eyebrow(
+                    if (state.recording == Recording.PAUSED) "JOURNEY PAUSED"
+                    else "JOURNEY IN PROGRESS"
+                )
             SpeedDial(state)
             val detail =
                 when {
@@ -373,7 +370,7 @@ private fun Dashboard(
                 Stat(
                     "RECORDED TIME",
                     duration(state.durationMillis),
-                    "excludes pauses",
+                    "h:mm:ss",
                     Modifier.weight(1f),
                 )
             }
@@ -393,32 +390,21 @@ private fun Dashboard(
                 )
             }
         }
-        if (state.trackingEnabled && state.permission && state.gpsEnabled && !state.hasSignal)
-            GlassCard {
-                Text("Waiting for accurate location", fontWeight = FontWeight.SemiBold)
-                Text(
-                    state.locationProblem
-                        ?: state.searchAccuracy?.let {
-                            "Location found · ±${it.roundToInt()} m. Waiting for an accuracy of 35 m or better before measuring speed."
-                        }
-                        ?: "No fresh location yet. Try outdoors with a clear view of the sky.",
-                    color = Muted,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-                FlowRow {
-                    TextButton(onClick = onRetryGps) { Text("Retry GPS") }
-                    TextButton(onClick = onConnectivity) { Text("View GPS status") }
-                }
+        if (state.trackingEnabled && state.permission && state.gpsEnabled && !state.hasSignal) {
+            state.locationProblem?.let {
+                Text(it, color = Amber, style = MaterialTheme.typography.bodySmall)
             }
+            FlowRow {
+                TextButton(onClick = onRetryGps) { Text("Retry GPS") }
+                TextButton(onClick = onConnectivity) { Text("View GPS status") }
+            }
+        }
         if (!state.permission)
             GlassCard {
-                Text("Let the journey begin.", fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
                 Text(
-                    "Allow precise location to see your real speed and record your route. Your journeys stay on this device.",
-                    fontSize = 13.sp,
-                    color = Muted,
-                    modifier = Modifier.padding(top = 8.dp),
+                    "Location permission needed",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 18.sp,
                 )
                 Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = onLocation) { Text("Enable GPS access") }
@@ -428,11 +414,7 @@ private fun Dashboard(
         else if (!state.gpsEnabled)
             GlassCard {
                 Text("Switch on GPS", fontWeight = FontWeight.SemiBold)
-                Text(
-                    "Device location is off. Turn it on to measure your speed.",
-                    color = Muted,
-                    fontSize = 13.sp,
-                )
+                Text("Device location is off.", color = Muted, fontSize = 13.sp)
                 TextButton(onClick = onGps) { Text("Open location settings") }
             }
         if (state.points.isNotEmpty())
@@ -442,17 +424,7 @@ private fun Dashboard(
                     state.points,
                     Modifier.fillMaxWidth().height(145.dp).padding(top = 12.dp),
                 )
-                Text("Offline route trace · north up", color = Muted, fontSize = 11.sp)
             }
-        Text(
-            if (state.recording == Recording.IDLE)
-                "Average = distance ÷ recorded time. Manual pauses are excluded; stationary recording time counts."
-            else
-                "Recording continues with your screen off. Manual pauses exclude time and distance.",
-            fontSize = 11.sp,
-            color = Muted,
-            modifier = Modifier.align(Alignment.CenterHorizontally),
-        )
         Spacer(Modifier.height(8.dp))
     }
 }
@@ -530,14 +502,6 @@ private fun SpeedDial(state: DriveState) {
                     letterSpacing = 1.sp,
                 )
                 Spacer(Modifier.height(12.dp))
-                Text(
-                    if (state.hasSignal && speed < 1) "STATIONARY"
-                    else if (state.hasSignal) "LIVE SPEED" else "WAITING",
-                    fontSize = 11.sp,
-                    letterSpacing = 1.5.sp,
-                    lineHeight = 16.sp,
-                    color = Muted,
-                )
             }
             Row(
                 Modifier.align(Alignment.BottomCenter)
@@ -560,7 +524,7 @@ private fun JourneysScreen(state: DriveState, modifier: Modifier, select: (Journ
         verticalArrangement = Arrangement.spacedBy(16.dp),
         contentPadding = PaddingValues(vertical = 20.dp),
     ) {
-        item { Header("Your journeys", "Your routes and progress, saved on this device.", state) }
+        item { Header("Your journeys") }
         if (state.journeys.isEmpty())
             item {
                 GlassCard {
@@ -571,24 +535,13 @@ private fun JourneysScreen(state: DriveState, modifier: Modifier, select: (Journ
                         fontSize = 21.sp,
                         modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 20.dp),
                     )
-                    Text(
-                        "Record a journey to keep its route and statistics here.",
-                        color = Muted,
-                        fontSize = 13.sp,
-                        modifier = Modifier.padding(vertical = 14.dp),
-                    )
                 }
             }
         if (state.journeys.isNotEmpty())
             item {
                 GlassCard {
                     Row {
-                        Stat(
-                            "JOURNEYS",
-                            state.journeys.size.toString(),
-                            "saved on device",
-                            Modifier.weight(1f),
-                        )
+                        Stat("JOURNEYS", state.journeys.size.toString(), "", Modifier.weight(1f))
                         Stat(
                             "TOTAL DISTANCE",
                             decimal(
@@ -619,12 +572,6 @@ private fun JourneysScreen(state: DriveState, modifier: Modifier, select: (Journ
                         color = Muted,
                         fontSize = 12.sp,
                         modifier = Modifier.padding(top = 16.dp),
-                    )
-                    Text(
-                        "Average uses total distance ÷ total recorded time, excluding manual pauses.",
-                        color = Muted,
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(top = 8.dp),
                     )
                 }
             }
@@ -692,14 +639,9 @@ private fun SettingsScreen(
             .padding(horizontal = 20.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        Header("Settings", "Make Velocity feel like yours.", state)
+        Header("Settings")
         GlassCard {
             Text("Measurement units", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "Used for speed, distance and journey insights.",
-                color = Muted,
-                style = MaterialTheme.typography.bodySmall,
-            )
             FlowRow(
                 Modifier.padding(top = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -722,17 +664,12 @@ private fun SettingsScreen(
                 onAwake,
             )
             HorizontalDivider(color = Border.copy(alpha = 0.55f))
-            PreferenceRow(
-                "Show GPS tab",
-                "GPS controls also open from the signal indicator.",
-                state.showGpsTab,
-                onGpsTabVisibility,
-            )
+            PreferenceRow("Show GPS tab", "", state.showGpsTab, onGpsTabVisibility)
         }
         GlassCard {
             PreferenceRow(
                 "Speed reminder",
-                "A visual reminder above your chosen speed",
+                "",
                 state.speedLimit > 0,
                 { onLimit(if (it) 50.0 / 3.6 else 0.0) },
             )
@@ -778,12 +715,6 @@ private fun SettingsScreen(
         }
         GlassCard {
             Text("Journey backup", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "Keep a private copy of your routes, notes and statistics.",
-                color = Muted,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = 6.dp),
-            )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(
                     onBackup,
@@ -806,12 +737,6 @@ private fun SettingsScreen(
                 )
         }
         updates()
-        Text(
-            "VELOCITY  ${BuildConfig.VERSION_NAME}",
-            color = Muted,
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.align(Alignment.CenterHorizontally).padding(vertical = 8.dp),
-        )
     }
 }
 
@@ -827,6 +752,7 @@ private fun JourneyDetails(
 ) {
     var delete by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
+    var averageDetails by remember { mutableStateOf(false) }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -888,11 +814,7 @@ private fun JourneyDetails(
                         Modifier.weight(1f),
                     )
                 }
-                Text(
-                    "Average = distance ÷ recorded time. Manual pauses are excluded; stationary recording time counts.",
-                    color = Muted,
-                    fontSize = 12.sp,
-                )
+                TextButton(onClick = { averageDetails = true }) { Text("Average calculation") }
                 SpeedGraph(journey, unit)
                 if (journey.interrupted)
                     Text(
@@ -911,6 +833,17 @@ private fun JourneyDetails(
             }
         }
     }
+    if (averageDetails)
+        AlertDialog(
+            onDismissRequest = { averageDetails = false },
+            title = { Text("Average speed") },
+            text = {
+                Text(
+                    "Distance ÷ recorded time. Manual pauses are excluded; stationary recording time counts."
+                )
+            },
+            confirmButton = { TextButton(onClick = { averageDetails = false }) { Text("Done") } },
+        )
     if (editing)
         JourneyEditor(
             "Journey details",
@@ -1041,7 +974,8 @@ internal fun Stat(label: String, value: String, unit: String, modifier: Modifier
             fontWeight = FontWeight.Medium,
             modifier = Modifier.padding(top = 6.dp),
         )
-        Text(unit, color = Muted, style = MaterialTheme.typography.labelSmall)
+        if (unit.isNotBlank())
+            Text(unit, color = Muted, style = MaterialTheme.typography.labelSmall)
     }
 }
 
@@ -1060,26 +994,14 @@ internal fun Eyebrow(text: String) {
 @Composable
 internal fun Header(
     title: String,
-    subtitle: String,
     state: DriveState? = null,
     onConnectivity: (() -> Unit)? = null,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(
-            Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                "VELOCITY",
-                color = Muted,
-                fontSize = 11.sp,
-                lineHeight = 16.sp,
-                letterSpacing = 1.7.sp,
-                fontWeight = FontWeight.Medium,
-            )
-            state?.let { SignalPill(it, onConnectivity) }
-        }
+    FlowRow(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         Text(
             title,
             fontSize = 28.sp,
@@ -1087,7 +1009,7 @@ internal fun Header(
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.semantics { heading() },
         )
-        Text(subtitle, color = Muted, style = MaterialTheme.typography.bodyMedium)
+        if (state != null && onConnectivity != null) SignalPill(state, onConnectivity)
     }
 }
 
