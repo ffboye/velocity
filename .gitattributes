@@ -1,0 +1,7 @@
+* text=auto
+gradlew text eol=lf
+*.mjs text eol=lf
+*.yml text eol=lf
+*.sig binary
+*.apk binary
+*.jar binary
