@@ -173,7 +173,7 @@ class RecordingIntegrationTest {
                 repository.state.value.journeys.first { it.id == saved.id }.name == "River journey"
             }
             compose.onNodeWithText("Speed over recorded time").performScrollTo().assertIsDisplayed()
-            compose.onNodeWithText("Done").performScrollTo().performClick()
+            compose.onNodeWithText("Done").performClick()
             compose.runOnIdle { repository.delete(saved.id) }
         } finally {
             shell("cmd location set-location-enabled true")

@@ -82,12 +82,15 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
             ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedDebugAndroidTest --console=plain
+            mkdir -p build/ui-checks
+            adb -s emulator-5554 pull /data/local/tmp/velocity-journey-route.png build/ui-checks/journey-route.png
+            adb -s emulator-5554 pull /data/local/tmp/velocity-offline-settings.png build/ui-checks/offline-settings.png
             adb -s emulator-5554 install -r app/build/outputs/apk/debug/app-debug.apk
             ANDROID_SERIAL=emulator-5554 node scripts/check-recording-recovery.mjs
             adb -s emulator-5554 uninstall com.example.myapplication
             ANDROID_SERIAL=emulator-5554 APK_PATH=app/build/outputs/apk/release/app-release.apk node scripts/smoke-release.mjs
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: always()
         with:
           name: release-test-reports
           path: |
@@ -95,6 +98,7 @@ jobs:
             app/build/outputs/androidTest-results/
             build/recording-recovery/
             build/release-smoke/
+            build/ui-checks/
           retention-days: 7
       - name: Authenticate previous release and generate new metadata
         env:

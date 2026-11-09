@@ -1,7 +1,7 @@
 package com.example.myapplication.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
@@ -22,6 +22,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -74,14 +75,12 @@ fun VelocityApp(
     val snackbar = remember { SnackbarHostState() }
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
     var finishDialog by rememberSaveable { mutableStateOf(false) }
-    var mapJourney by rememberSaveable { mutableStateOf<String?>(null) }
     val pageState = rememberSaveableStateHolder()
     // Keep full tab names readable within their fixed-width touch targets at large font sizes.
     val navigationLabelSize = (12f / (LocalDensity.current.fontScale / 1.3f).coerceAtLeast(1f)).sp
-    val pageOpacity = remember { Animatable(1f) }
     LaunchedEffect(page) {
-        pageOpacity.snapTo(0.65f)
-        pageOpacity.animateTo(1f, tween(180))
+        // Restore old saved navigation state into Journeys after removing the Map tab.
+        if (page == 2) onPage(1)
     }
     BackHandler(enabled = selected != null || finishDialog || page != 0) {
         when {
@@ -183,9 +182,8 @@ fun VelocityApp(
                             }
                     }
                 NavigationBar(containerColor = VelocityColors.Navigation, tonalElevation = 0.dp) {
-                    listOf("Speed", "Journeys", "Map", "GPS", "Settings")
-                        .withIndex()
-                        .filter { it.index != 3 || state.showGpsTab }
+                    listOf(0 to "Speed", 1 to "Journeys", 3 to "GPS", 4 to "Settings")
+                        .filter { it.first != 3 || state.showGpsTab }
                         .forEach { (index, label) ->
                             NavigationBarItem(
                                 selected = page == index,
@@ -218,54 +216,48 @@ fun VelocityApp(
             }
         },
     ) { padding ->
-        val content =
-            Modifier.fillMaxSize().padding(padding).graphicsLayer { alpha = pageOpacity.value }
-        pageState.SaveableStateProvider(page) {
-            when (page) {
-                1 -> JourneysScreen(state, content) { selected = it.id }
-                2 ->
-                    if (mapController != null)
-                        MapsScreen(
+        val content = Modifier.fillMaxSize().padding(padding)
+        Crossfade(targetState = page, animationSpec = tween(160), label = "Page transition") {
+            visiblePage ->
+            pageState.SaveableStateProvider(visiblePage) {
+                when (visiblePage) {
+                    1 -> JourneysScreen(state, content) { selected = it.id }
+                    3 ->
+                        GpsScreen(
                             state,
+                            content,
+                            onEnableLocation,
+                            onGpsSettings,
+                            onAppSettings,
+                            onRetryGps,
+                            onTracking,
+                        )
+                    4 ->
+                        SettingsScreen(
+                            state,
+                            content,
+                            onUnit,
+                            onAwake,
+                            onLimit,
+                            onAppSettings,
+                            updates,
+                            onBackup,
+                            onRestore,
+                            onGpsTabVisibility,
                             mapState,
                             mapController,
-                            mapJourney,
-                            { mapJourney = it },
-                            content,
                         )
-                3 ->
-                    GpsScreen(
-                        state,
-                        content,
-                        onEnableLocation,
-                        onGpsSettings,
-                        onAppSettings,
-                        onRetryGps,
-                        onTracking,
-                    )
-                4 ->
-                    SettingsScreen(
-                        state,
-                        content,
-                        onUnit,
-                        onAwake,
-                        onLimit,
-                        onAppSettings,
-                        updates,
-                        onBackup,
-                        onRestore,
-                        onGpsTabVisibility,
-                    )
-                else ->
-                    Dashboard(
-                        state,
-                        content,
-                        onEnableLocation,
-                        onGpsSettings,
-                        onAppSettings,
-                        onRetryGps,
-                        onConnectivity = { onPage(3) },
-                    )
+                    else ->
+                        Dashboard(
+                            state,
+                            content,
+                            onEnableLocation,
+                            onGpsSettings,
+                            onAppSettings,
+                            onRetryGps,
+                            onConnectivity = { onPage(3) },
+                        )
+                }
             }
         }
     }
@@ -282,11 +274,6 @@ fun VelocityApp(
                 },
                 onExport = { onExport(journey) },
                 onEdit = { name, notes -> onEditJourney(journey.id, name, notes) },
-                onMap = {
-                    mapJourney = journey.id
-                    selected = null
-                    onPage(2)
-                },
             )
         }
     if (finishDialog)
@@ -520,7 +507,7 @@ private fun SpeedDial(state: DriveState) {
 private fun JourneysScreen(state: DriveState, modifier: Modifier, select: (Journey) -> Unit) {
     val summary = JourneyTotals.from(state.journeys, System.currentTimeMillis())
     LazyColumn(
-        modifier.padding(horizontal = 20.dp),
+        modifier.padding(horizontal = 20.dp).testTag("journeys-content"),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         contentPadding = PaddingValues(vertical = 20.dp),
     ) {
@@ -631,6 +618,8 @@ private fun SettingsScreen(
     onBackup: () -> Unit,
     onRestore: () -> Unit,
     onGpsTabVisibility: (Boolean) -> Unit,
+    maps: MapState,
+    mapController: OfflineMaps?,
 ) {
     var privacyDetails by rememberSaveable { mutableStateOf(false) }
     Column(
@@ -688,6 +677,7 @@ private fun SettingsScreen(
                 )
             }
         }
+        if (mapController != null) OfflineMapSettings(state, maps, mapController)
         GlassCard {
             Eyebrow("LOCATION & PRIVACY")
             Text(
@@ -748,7 +738,6 @@ private fun JourneyDetails(
     onDelete: () -> Unit,
     onExport: () -> Unit,
     onEdit: (String, String) -> Unit,
-    onMap: () -> Unit,
 ) {
     var delete by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
@@ -763,73 +752,103 @@ private fun JourneyDetails(
             color = VelocityColors.Background,
             contentColor = VelocityColors.Text,
         ) {
-            Column(
-                Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(22.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.fillMaxSize()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Text(
                         journey.displayName,
                         Modifier.weight(1f),
                         style = MaterialTheme.typography.headlineMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     TextButton(onDismiss) { Text("Done") }
                 }
-                Text("${date(journey.startedAt)} · ${time(journey.startedAt)}", color = Muted)
-                if (journey.notes.isNotBlank()) Text(journey.notes, fontSize = 14.sp)
-                TextButton(onClick = { editing = true }) { Text("Edit name & notes") }
-                RouteTrace(journey.points, Modifier.fillMaxWidth().height(210.dp))
-                OutlinedButton(
-                    onMap,
-                    enabled = journey.points.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth(),
+                HorizontalDivider(color = Border.copy(alpha = 0.55f))
+                Column(
+                    Modifier.weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    Text("View street map")
-                }
-                Row {
-                    Stat(
-                        "DISTANCE",
-                        decimal(journey.distanceMeters / unit.distanceDivisor),
-                        unit.distanceLabel,
-                        Modifier.weight(1f),
-                    )
-                    Stat(
-                        "RECORDED TIME",
-                        duration(journey.durationMillis),
-                        "h:mm:ss",
-                        Modifier.weight(1f),
-                    )
-                }
-                Row {
-                    Stat(
-                        "AVERAGE",
-                        decimal(journey.averageSpeed * unit.multiplier, 0),
-                        unit.label,
-                        Modifier.weight(1f),
-                    )
-                    Stat(
-                        "TOP SPEED",
-                        decimal(journey.maxSpeed * unit.multiplier, 0),
-                        unit.label,
-                        Modifier.weight(1f),
-                    )
-                }
-                TextButton(onClick = { averageDetails = true }) { Text("Average calculation") }
-                SpeedGraph(journey, unit)
-                if (journey.interrupted)
+                    Text("${date(journey.startedAt)} · ${time(journey.startedAt)}", color = Muted)
+                    if (journey.notes.isNotBlank()) Text(journey.notes, fontSize = 14.sp)
+                    TextButton(onClick = { editing = true }) { Text("Edit name & notes") }
                     Text(
-                        "Recovered after recording was interrupted. Includes the last saved checkpoint.",
-                        fontSize = 12.sp,
-                        color = Amber,
+                        "Route",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.semantics { heading() },
                     )
-                Button(
-                    onClick = onExport,
-                    enabled = journey.points.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Export route as GPX")
+                    if (journey.points.isNotEmpty()) {
+                        RouteMap(
+                            journey.points,
+                            Modifier.fillMaxWidth().height(360.dp).clip(RoundedCornerShape(18.dp)),
+                            cameraKey = journey.id,
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(20.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RouteMarker("Start", Green)
+                            RouteMarker("Finish", VelocityColors.Text)
+                        }
+                    } else {
+                        Text(
+                            "No GPS route was recorded for this journey.",
+                            color = Muted,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                    Row {
+                        Stat(
+                            "DISTANCE",
+                            decimal(journey.distanceMeters / unit.distanceDivisor),
+                            unit.distanceLabel,
+                            Modifier.weight(1f),
+                        )
+                        Stat(
+                            "RECORDED TIME",
+                            duration(journey.durationMillis),
+                            "h:mm:ss",
+                            Modifier.weight(1f),
+                        )
+                    }
+                    Row {
+                        Stat(
+                            "AVERAGE",
+                            decimal(journey.averageSpeed * unit.multiplier, 0),
+                            unit.label,
+                            Modifier.weight(1f),
+                        )
+                        Stat(
+                            "TOP SPEED",
+                            decimal(journey.maxSpeed * unit.multiplier, 0),
+                            unit.label,
+                            Modifier.weight(1f),
+                        )
+                    }
+                    TextButton(onClick = { averageDetails = true }) { Text("Average calculation") }
+                    SpeedGraph(journey, unit)
+                    if (journey.interrupted)
+                        Text(
+                            "Recovered after recording was interrupted. Includes the last saved checkpoint.",
+                            fontSize = 12.sp,
+                            color = Amber,
+                        )
+                    Button(
+                        onClick = onExport,
+                        enabled = journey.points.isNotEmpty(),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Export route as GPX")
+                    }
+                    TextButton(onClick = { delete = true }) {
+                        Text("Delete journey", color = Amber)
+                    }
                 }
-                TextButton(onClick = { delete = true }) { Text("Delete journey", color = Amber) }
             }
         }
     }
@@ -869,7 +888,18 @@ private fun JourneyDetails(
 }
 
 @Composable
-private fun RouteTrace(points: List<RoutePoint>, modifier: Modifier) {
+private fun RouteMarker(label: String, color: Color) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(Modifier.size(7.dp).background(color, CircleShape))
+        Text(label, color = Muted, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+@Composable
+internal fun RouteTrace(points: List<RoutePoint>, modifier: Modifier) {
     if (points.isEmpty())
         Box(
             modifier.background(VelocityColors.Navigation, RoundedCornerShape(12.dp)),

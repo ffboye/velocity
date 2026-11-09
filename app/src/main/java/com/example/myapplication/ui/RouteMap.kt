@@ -34,6 +34,9 @@ internal fun RouteMap(
     cameraKey: String = "",
     onArea: (MapArea) -> Unit = {},
     onFit: () -> Unit = {},
+    fitLabel: String = "Fit route",
+    description: String =
+        "Street map with recorded journey route. Use zoom and fit controls below, or pan the map.",
 ) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
@@ -219,24 +222,35 @@ internal fun RouteMap(
         }
     }
     Column(modifier) {
-        AndroidView(
-            factory = {
-                view.contentDescription =
-                    "Street map with recorded journey route. Use zoom and fit controls below, or pan the map."
-                view.setOnTouchListener { v, event ->
-                    if (event.actionMasked == MotionEvent.ACTION_DOWN)
-                        v.parent.requestDisallowInterceptTouchEvent(true)
-                    if (
-                        event.actionMasked == MotionEvent.ACTION_UP ||
-                            event.actionMasked == MotionEvent.ACTION_CANCEL
+        Box(Modifier.fillMaxWidth().weight(1f)) {
+            AndroidView(
+                factory = {
+                    view.contentDescription = description
+                    view.setOnTouchListener { v, event ->
+                        if (event.actionMasked == MotionEvent.ACTION_DOWN)
+                            v.parent.requestDisallowInterceptTouchEvent(true)
+                        if (
+                            event.actionMasked == MotionEvent.ACTION_UP ||
+                                event.actionMasked == MotionEvent.ACTION_CANCEL
+                        )
+                            v.parent.requestDisallowInterceptTouchEvent(false)
+                        false
+                    }
+                    view
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+            if (error != null && points.isNotEmpty()) {
+                Column(Modifier.fillMaxSize()) {
+                    RouteTrace(points, Modifier.fillMaxWidth().weight(1f))
+                    Text(
+                        "Route outline · streets unavailable",
+                        color = Muted,
+                        style = MaterialTheme.typography.labelSmall,
                     )
-                        v.parent.requestDisallowInterceptTouchEvent(false)
-                    false
                 }
-                view
-            },
-            modifier = Modifier.fillMaxWidth().weight(1f),
-        )
+            }
+        }
         if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
         error?.let { Text(it, color = Amber, style = MaterialTheme.typography.bodySmall) }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -259,7 +273,7 @@ internal fun RouteMap(
                 },
                 enabled = map != null,
             ) {
-                Text("Fit route")
+                Text(fitLabel)
             }
             if (error != null) TextButton(onClick = { reload++ }) { Text("Retry map") }
         }

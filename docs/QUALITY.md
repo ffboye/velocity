@@ -24,7 +24,9 @@ Recorded time includes stationary time while recording and excludes manual pause
 
 Automated checks cover satellite normalization and freshness, Android GNSS report adaptation, live/unavailable diagnostic UI, four-tab navigation and Back, fused location without raw GPS, background recording, device location off/on reconnection, pause/finish and disk persistence, pending-save installation blocking, failed-write recovery, backups, GPX export and updater integrity. Instrumentation uses isolated test data and Android mock providers; no demonstration satellites are included in the app.
 
-The checks workflow runs formatting, unit tests, lint, Android instrumentation and process-death recovery on main and pull requests. Releases repeat those checks, then install the exact signed APK and test startup, automatic-update transport and map navigation before publication. Failure artifacts contain test reports and bounded emulator diagnostics, never signing keys.
+The checks workflow runs formatting, unit tests, lint, Android instrumentation and process-death recovery on main and pull requests. Releases repeat those checks, then install the exact signed APK and test startup, automatic-update transport, offline Settings and map area selection before publication. Artifacts contain test reports, bounded emulator diagnostics and synthetic-data screenshots, never signing keys.
+
+The map regression opens a real journey's embedded route, verifies rendered street and route features, downloads an area, switches downloads off and disables the map SDK's connectivity, then recreates the journey map and verifies streets and route features again. It deletes the download through Settings and checks that the journey remains. Navigation checks confirm that the Map tab is absent and the offline guide and area picker are reachable in Settings. Screenshots are captured on remote test emulators for visual review; local emulators need not be started.
 
 ## Process-death regression
 
