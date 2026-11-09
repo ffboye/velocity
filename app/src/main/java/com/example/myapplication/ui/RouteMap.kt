@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
@@ -253,29 +254,38 @@ internal fun RouteMap(
         }
         if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
         error?.let { Text(it, color = Amber, style = MaterialTheme.typography.bodySmall) }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(
+        Row(
+            Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            AppOutlinedButton(
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp),
                 onClick = { map?.animateCamera(CameraUpdateFactory.zoomIn()) },
                 enabled = map != null,
             ) {
-                Text("Zoom in")
+                Text("Zoom in", textAlign = TextAlign.Center)
             }
-            TextButton(
+            AppOutlinedButton(
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp),
                 onClick = { map?.animateCamera(CameraUpdateFactory.zoomOut()) },
                 enabled = map != null,
             ) {
-                Text("Zoom out")
+                Text("Zoom out", textAlign = TextAlign.Center)
             }
-            TextButton(
+            AppOutlinedButton(
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp),
                 onClick = {
                     onFit()
                     fit++
                 },
                 enabled = map != null,
             ) {
-                Text(fitLabel)
+                Text(fitLabel, textAlign = TextAlign.Center)
             }
-            if (error != null) TextButton(onClick = { reload++ }) { Text("Retry map") }
         }
+        if (error != null) AppTextButton(onClick = { reload++ }) { Text("Retry map") }
     }
 }

@@ -170,7 +170,7 @@ class MainActivity : ComponentActivity() {
                     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
-            MyApplicationTheme {
+            MyApplicationTheme(easyReading = state.easyReading) {
                 VelocityApp(
                     state,
                     page,
@@ -214,6 +214,7 @@ class MainActivity : ComponentActivity() {
                     onUnit = repository::unit,
                     onAwake = repository::keepAwake,
                     onGpsTabVisibility = repository::showGpsTab,
+                    onEasyReading = repository::easyReading,
                     onLimit = repository::limit,
                     onDelete = repository::delete,
                     onDismissMessage = { repository.message(null) },

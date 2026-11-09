@@ -53,11 +53,11 @@ internal fun SpeedGraph(journey: Journey, unit: SpeedUnit) {
         style = MaterialTheme.typography.labelSmall,
     )
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        TextButton(onClick = { selected = journey.samples.first() }) { Text("First reading") }
-        TextButton(onClick = { selected = journey.samples.maxBy { it.metersPerSecond } }) {
+        AppTextButton(onClick = { selected = journey.samples.first() }) { Text("First reading") }
+        AppTextButton(onClick = { selected = journey.samples.maxBy { it.metersPerSecond } }) {
             Text("Peak reading")
         }
-        TextButton(onClick = { selected = journey.samples.last() }) { Text("Last reading") }
+        AppTextButton(onClick = { selected = journey.samples.last() }) { Text("Last reading") }
     }
     Canvas(
         Modifier.fillMaxWidth()

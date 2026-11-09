@@ -8,6 +8,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
+import com.example.myapplication.ui.theme.LocalEasyReading
 
 @Composable
 internal fun PreferenceRow(
@@ -21,7 +22,7 @@ internal fun PreferenceRow(
         Modifier.fillMaxWidth()
             .semantics(mergeDescendants = true) { contentDescription = accessibilityLabel }
             .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
-            .heightIn(min = 64.dp)
+            .heightIn(min = if (LocalEasyReading.current) 80.dp else 72.dp)
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),

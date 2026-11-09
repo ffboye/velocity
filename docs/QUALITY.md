@@ -16,6 +16,8 @@ Active journey controls remain visible on every tab. Saves are serialized and co
 
 ## Verification
 
+The readability regression verifies the default Start journey button is at least 64 dp high, enables Easy reading through Settings, recreates the Activity and checks the saved preference. On an isolated emulator it temporarily sets Android text size to 150%, checks larger controls and navigation remain visible, and verifies that the offline Download area and Done actions remain reachable without scrolling. The test restores device and app settings afterwards and captures normal/large-text screenshots. Physical phones are excluded from this device-setting test.
+
 Version 1.3 adds actual online/offline street-map rendering tests, download deletion that retains journeys, network-policy and region-size bounds, old-file compatibility, metadata and graph backup round-trips, GPX escaping, weighted averages, graph gap/pause timing, tracking off/on and editable names/notes. Offline verification disables the map SDK's network connectivity and checks that downloaded features render. Fixture routes and native mock data exist only in instrumentation.
 
 GPS quality is Good for accepted fixes up to 20 m and three seconds old; accepted less accurate/older fixes and fresh coarse observations are Weak. After five seconds an accepted fix is no longer used. No fresh location is Searching; app tracking, permission or device location off is Off. Satellite signal strength remains separate. Tracking off pauses manually and clears readings; it does not change Android's device-wide setting.

@@ -69,7 +69,7 @@ internal fun OfflineMapSettings(state: DriveState, maps: MapState, controller: O
                     controller::wifiOnly,
                     "Download maps over Wi-Fi only",
                 )
-                OutlinedButton(
+                AppOutlinedButton(
                     onClick = {
                         focusArea = null
                         picker = true
@@ -81,7 +81,7 @@ internal fun OfflineMapSettings(state: DriveState, maps: MapState, controller: O
                 }
             }
         }
-        TextButton(onClick = { help = !help }) {
+        AppTextButton(onClick = { help = !help }) {
             Text(if (help) "Hide offline guide" else "How offline maps work")
         }
         AnimatedVisibility(visible = help) {
@@ -124,7 +124,7 @@ internal fun OfflineMapSettings(state: DriveState, maps: MapState, controller: O
                             modifier = Modifier.fillMaxWidth(),
                         )
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        TextButton(
+                        AppTextButton(
                             onClick = {
                                 focusArea = saved.area
                                 picker = true
@@ -133,7 +133,7 @@ internal fun OfflineMapSettings(state: DriveState, maps: MapState, controller: O
                             Text("View area")
                         }
                         if (!saved.complete)
-                            TextButton(
+                            AppTextButton(
                                 onClick = {
                                     if (saved.downloading) controller.pause(saved.id)
                                     else controller.resume(saved.id)
@@ -142,7 +142,7 @@ internal fun OfflineMapSettings(state: DriveState, maps: MapState, controller: O
                             ) {
                                 Text(if (saved.downloading) "Pause download" else "Resume")
                             }
-                        TextButton(onClick = { deleteId = saved.id }) { Text("Delete map") }
+                        AppTextButton(onClick = { deleteId = saved.id }) { Text("Delete map") }
                     }
                 }
             }
@@ -172,7 +172,7 @@ internal fun OfflineMapSettings(state: DriveState, maps: MapState, controller: O
                 )
             },
             confirmButton = {
-                TextButton(
+                AppTextButton(
                     onClick = {
                         controller.delete(id)
                         deleteId = null
@@ -181,7 +181,7 @@ internal fun OfflineMapSettings(state: DriveState, maps: MapState, controller: O
                     Text("Delete")
                 }
             },
-            dismissButton = { TextButton(onClick = { deleteId = null }) { Text("Keep map") } },
+            dismissButton = { AppTextButton(onClick = { deleteId = null }) { Text("Keep map") } },
         )
     }
 }
@@ -225,7 +225,7 @@ private fun OfflineAreaPicker(
                         modifier = Modifier.weight(1f).semantics { heading() },
                         style = MaterialTheme.typography.titleLarge,
                     )
-                    TextButton(onDismiss) { Text("Done") }
+                    AppTextButton(onDismiss) { Text("Done") }
                 }
                 Column(
                     Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
@@ -256,21 +256,23 @@ private fun OfflineAreaPicker(
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
-                        val candidate = area
-                        Text(
-                            if (candidate?.downloadable == true)
-                                "About ${mb(candidate.estimatedBytes)} MB · ${mb(candidate.estimatedBytes + 50_000_000)} MB free needed"
-                            else "Zoom in to choose a smaller area · 40 MB limit",
-                            color = Muted,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        Button(
-                            onClick = { candidate?.let { onDownload(it, name) } },
-                            enabled = candidate?.downloadable == true && !maps.loading,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text("Download area")
-                        }
+                    }
+                }
+                if (maps.enabled) {
+                    val candidate = area
+                    Text(
+                        if (candidate?.downloadable == true)
+                            "About ${mb(candidate.estimatedBytes)} MB · ${mb(candidate.estimatedBytes + 50_000_000)} MB free needed"
+                        else "Zoom in to choose a smaller area · 40 MB limit",
+                        color = Muted,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    AppButton(
+                        onClick = { candidate?.let { onDownload(it, name) } },
+                        enabled = candidate?.downloadable == true && !maps.loading,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Download area")
                     }
                 }
             }

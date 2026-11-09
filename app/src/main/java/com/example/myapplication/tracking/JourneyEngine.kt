@@ -71,6 +71,7 @@ data class DriveState(
     val saving: Boolean = false,
     val trackingEnabled: Boolean = true,
     val showGpsTab: Boolean = true,
+    val easyReading: Boolean = false,
     val speed: Double = 0.0,
     val recording: Recording = Recording.IDLE,
     val durationMillis: Long = 0,

@@ -47,7 +47,7 @@ internal fun JourneyEditor(
                 )
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(name, notes) }) { Text(action) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { AppTextButton(onClick = { onSave(name, notes) }) { Text(action) } },
+        dismissButton = { AppTextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }

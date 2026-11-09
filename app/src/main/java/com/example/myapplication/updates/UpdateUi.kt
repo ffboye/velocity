@@ -12,6 +12,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.myapplication.BuildConfig
+import com.example.myapplication.ui.AppButton
+import com.example.myapplication.ui.AppTextButton
 import com.example.myapplication.ui.PreferenceRow
 import java.text.DateFormat
 import java.util.Date
@@ -53,7 +55,7 @@ fun UpdateSettings(
             if (BuildConfig.DEBUG)
                 Text(
                     "This test build can back up your journeys. Install the release-signed build to receive production upgrades.",
-                    fontSize = 13.sp,
+                    fontSize = 14.sp,
                 )
             PreferenceRow(
                 "Automatic updates",
@@ -64,18 +66,18 @@ fun UpdateSettings(
             )
             Text(
                 "Last successful check: ${if (state.lastCheck == 0L) "Never" else DateFormat.getDateTimeInstance().format(Date(state.lastCheck))}",
-                fontSize = 12.sp,
+                fontSize = 14.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Button(onCheck, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+            AppButton(onCheck, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
                 Text(if (state.phase == UpdatePhase.CHECKING) "Checking…" else "Check for Updates")
             }
             if (state.phase == UpdatePhase.DOWNLOADING) {
                 DownloadProgress(state.progress)
-                TextButton(onCancel) { Text("Cancel download") }
+                AppTextButton(onCancel) { Text("Cancel download") }
             }
             if (state.manifest != null && state.phase != UpdatePhase.CHECKING) {
-                TextButton(onShow) {
+                AppTextButton(onShow) {
                     Text(
                         if (state.phase == UpdatePhase.READY) "View verified update"
                         else "View available update"
@@ -137,7 +139,7 @@ fun UpdateDialog(
                             "Download size  %.1f MB",
                             release.sizeBytes / 1048576.0,
                         ),
-                        fontSize = 13.sp,
+                        fontSize = 14.sp,
                     )
                     Text("What's new", style = MaterialTheme.typography.titleSmall)
                     release.releaseNotes.forEach { Text("•  $it", fontSize = 14.sp) }
@@ -160,17 +162,17 @@ fun UpdateDialog(
                     Text(
                         blockingMessage
                             ?: "Installation waits until your journey is finished, including paused journeys.",
-                        fontSize = 13.sp,
+                        fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.primary,
                     )
                 when (state.phase) {
                     UpdatePhase.AVAILABLE ->
-                        Button(onDownload, modifier = Modifier.fillMaxWidth()) {
+                        AppButton(onDownload, modifier = Modifier.fillMaxWidth()) {
                             Text("Update Now")
                         }
-                    UpdatePhase.DOWNLOADING -> TextButton(onCancel) { Text("Cancel download") }
+                    UpdatePhase.DOWNLOADING -> AppTextButton(onCancel) { Text("Cancel download") }
                     UpdatePhase.READY ->
-                        Button(
+                        AppButton(
                             onInstall,
                             enabled = !installationBlocked,
                             modifier = Modifier.fillMaxWidth(),
@@ -178,7 +180,7 @@ fun UpdateDialog(
                             Text("Install update")
                         }
                     UpdatePhase.ERROR ->
-                        Button(
+                        AppButton(
                             if (state.manifest == null) onRetry else onDownload,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
@@ -186,7 +188,9 @@ fun UpdateDialog(
                         }
                     else -> Unit
                 }
-                TextButton(onLater, modifier = Modifier.fillMaxWidth()) { Text("Remind Me Later") }
+                AppTextButton(onLater, modifier = Modifier.fillMaxWidth()) {
+                    Text("Remind Me Later")
+                }
             }
         }
     }

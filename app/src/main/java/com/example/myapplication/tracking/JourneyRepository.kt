@@ -31,6 +31,7 @@ class JourneyRepository(context: Context) {
                 speedLimit = settings.getFloat("speed_limit", 0f).toDouble(),
                 trackingEnabled = settings.getBoolean("tracking_enabled", true),
                 showGpsTab = settings.getBoolean("show_gps_tab", true),
+                easyReading = settings.getBoolean("easy_reading", false),
             )
         )
     val state = mutable.asStateFlow()
@@ -324,6 +325,11 @@ class JourneyRepository(context: Context) {
     fun showGpsTab(enabled: Boolean) {
         settings.edit { putBoolean("show_gps_tab", enabled) }
         mutable.update { it.copy(showGpsTab = enabled) }
+    }
+
+    fun easyReading(enabled: Boolean) {
+        settings.edit { putBoolean("easy_reading", enabled) }
+        mutable.update { it.copy(easyReading = enabled) }
     }
 
     fun limit(speed: Double) {

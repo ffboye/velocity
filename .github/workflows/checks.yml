@@ -65,6 +65,8 @@ jobs:
             mkdir -p build/ui-checks
             adb -s emulator-5554 pull /data/local/tmp/velocity-journey-route.png build/ui-checks/journey-route.png
             adb -s emulator-5554 pull /data/local/tmp/velocity-offline-settings.png build/ui-checks/offline-settings.png
+            adb -s emulator-5554 pull /data/local/tmp/velocity-readability-standard.png build/ui-checks/readability-standard.png
+            adb -s emulator-5554 pull /data/local/tmp/velocity-readability-large.png build/ui-checks/readability-large.png
             adb -s emulator-5554 install -r app/build/outputs/apk/debug/app-debug.apk
             ANDROID_SERIAL=emulator-5554 node scripts/check-recording-recovery.mjs
       - uses: actions/upload-artifact@v4

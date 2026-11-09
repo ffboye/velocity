@@ -11,6 +11,7 @@ object VelocityColors {
     val Raised = Color(0xFF202731)
     val Navigation = Color(0xFF11151B)
     val Outline = Color(0xFF303A47)
+    val ControlOutline = Color(0xFF718298)
     val Text = Color(0xFFF0F4FA)
-    val Muted = Color(0xFFA6B2C2)
+    val Muted = Color(0xFFBBC7D8)
 }

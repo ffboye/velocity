@@ -112,15 +112,16 @@ internal fun GpsScreen(
                 ) {
                     when {
                         !state.trackingEnabled ->
-                            Button(onClick = { onTracking(true) }) { Text("Turn tracking on") }
+                            AppButton(onClick = { onTracking(true) }) { Text("Turn tracking on") }
                         !state.permission -> {
-                            Button(onPermission) { Text("Allow precise location") }
-                            TextButton(onAppSettings) { Text("App permissions") }
+                            AppButton(onPermission) { Text("Allow precise location") }
+                            AppTextButton(onAppSettings) { Text("App permissions") }
                         }
-                        !state.gpsEnabled -> Button(onLocationSettings) { Text("Turn on location") }
+                        !state.gpsEnabled ->
+                            AppButton(onLocationSettings) { Text("Turn on location") }
                         else -> {
-                            OutlinedButton(onRetry) { Text("Retry GPS") }
-                            TextButton(onLocationSettings) { Text("Location settings") }
+                            AppOutlinedButton(onRetry) { Text("Retry GPS") }
+                            AppTextButton(onLocationSettings) { Text("Location settings") }
                         }
                     }
                 }
@@ -161,16 +162,16 @@ internal fun GpsScreen(
                         state.gnss.updatedAt != null -> "Satellite report expired"
                         else -> "Waiting for satellite report"
                     },
-                    fontSize = 13.sp,
+                    fontSize = 14.sp,
                     color = Muted,
                     modifier = Modifier.padding(top = 18.dp),
                 )
                 if (satellites.isNotEmpty()) {
                     SkyView(satellites, Modifier.fillMaxWidth().height(240.dp).padding(top = 18.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                        Text("● Used in fix", color = Green, fontSize = 12.sp)
+                        Text("● Used in fix", color = Green, fontSize = 14.sp)
                         Spacer(Modifier.width(18.dp))
-                        Text("○ In view", color = Muted, fontSize = 12.sp)
+                        Text("○ In view", color = Muted, fontSize = 14.sp)
                     }
                 }
             }
@@ -184,7 +185,7 @@ internal fun GpsScreen(
                             fontSize = 20.sp,
                             fontWeight = FontWeight.SemiBold,
                         )
-                        Text("${satellites.size} satellites", color = Muted, fontSize = 12.sp)
+                        Text("${satellites.size} satellites", color = Muted, fontSize = 14.sp)
                     }
                 }
             }
@@ -193,7 +194,7 @@ internal fun GpsScreen(
             }
             if (satellites.size > 8)
                 item {
-                    OutlinedButton(
+                    AppOutlinedButton(
                         onClick = { showAll = !showAll },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
@@ -223,7 +224,7 @@ internal fun GpsScreen(
                         String.format(Locale.getDefault(), "%.1f s", it / 1000.0),
                     )
                 }
-                TextButton(onLocationSettings) { Text("Manage location services") }
+                AppTextButton(onLocationSettings) { Text("Manage location services") }
             }
         }
     }
@@ -235,8 +236,8 @@ private fun DetailRow(label: String, value: String) {
         Modifier.fillMaxWidth().padding(top = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(label, color = Muted, fontSize = 13.sp)
-        Text(value, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+        Text(label, color = Muted, fontSize = 14.sp)
+        Text(value, fontSize = 14.sp, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -255,7 +256,7 @@ private fun SatelliteSignal(satellite: Satellite) {
                     Text(
                         if (satellite.usedInFix) "Used in fix" else "In view",
                         color = if (satellite.usedInFix) Green else Muted,
-                        fontSize = 12.sp,
+                        fontSize = 14.sp,
                     )
                 }
                 Text(

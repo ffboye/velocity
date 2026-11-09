@@ -81,8 +81,11 @@ class VelocityUiTest {
             android.os.ParcelFileDescriptor.AutoCloseInputStream(screenshot).use { it.readBytes() }
             compose.onNodeWithText("Choose area to download").performScrollTo().performClick()
             compose.onNodeWithText("Choose offline area").assertIsDisplayed()
-            compose.onNodeWithText("Download area").performScrollTo().assertIsDisplayed()
-            compose.onNodeWithText("Area name (optional)").performTextInput("Weekend area")
+            compose.onNodeWithText("Download area").assertIsDisplayed()
+            compose
+                .onNodeWithText("Area name (optional)")
+                .performScrollTo()
+                .performTextInput("Weekend area")
             compose.activityRule.scenario.recreate()
             compose.onNodeWithText("Choose offline area").assertIsDisplayed()
             compose.onNodeWithText("Weekend area").assertExists()
