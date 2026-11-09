@@ -89,7 +89,7 @@ internal fun OfflineMapSettings(state: DriveState, maps: MapState, controller: O
                 "1. Enable offline maps, then choose an area. Pan and zoom until the area is small enough to download.\n\n" +
                     "2. Tap Download area and keep Velocity open until it says Available offline. Wi-Fi is required unless you turn Wi-Fi downloads only off.\n\n" +
                     "3. Open a journey. Its route uses downloaded streets automatically, even without a connection. GPS still needs location permission and device location turned on.\n\n" +
-                    "Downloads pause when you leave the app or lose the allowed connection. After reopening Velocity, tap Resume. Turning downloads off keeps saved areas usable. Delete an area to free its storage; your journeys stay saved.\n\n" +
+                    "Downloads pause when you leave the app or lose the allowed connection. If a download stays paused after reopening, tap Resume. Turning downloads off keeps saved areas usable. Delete an area to free its storage; your journeys stay saved.\n\n" +
                     "Outside downloaded areas, streets need internet. Very close zoom detail may also need a connection. Journey backups include routes, not downloaded street maps.",
                 color = Muted,
                 style = MaterialTheme.typography.bodyMedium,
