@@ -76,23 +76,27 @@ class FusedLocationIntegrationTest {
                     TimeUnit.SECONDS,
                 )
             }
+            fun feedUntil(longitude: Double, accuracy: Float = 3f, condition: () -> Boolean) {
+                val deadline = SystemClock.elapsedRealtime() + 20000
+                // Registration and retry are asynchronous. A single fix can arrive before
+                // registration and correctly be rejected as a cached fix by Play services.
+                do {
+                    inject(longitude, accuracy)
+                    Thread.sleep(1100)
+                    if (condition()) return
+                } while (SystemClock.elapsedRealtime() < deadline)
+                fail("Fresh fused fixes were not observed within 20 seconds")
+            }
             // Raw GPS is disabled: every observed position here must arrive via Play services.
-            inject(4.0, 250f)
-            compose.waitUntil(20000) { repository.state.value.searchAccuracy == 250f }
+            feedUntil(4.0, 250f) { repository.state.value.searchAccuracy == 250f }
             assertFalse(repository.state.value.hasSignal)
             assertEquals(0.0, repository.state.value.speed, 0.0)
             compose.onNodeWithText("Retry GPS").performScrollTo().performClick()
-            Thread.sleep(1200)
-            inject(4.0)
-            compose.waitUntil(10000) { repository.state.value.hasSignal }
+            feedUntil(4.0) { repository.state.value.hasSignal }
             compose.onNodeWithText("Start journey").performClick()
             compose.waitUntil(10000) { repository.state.value.recording == Recording.RECORDING }
-            Thread.sleep(1100)
-            inject(4.0)
-            compose.waitUntil(10000) { repository.state.value.points.isNotEmpty() }
-            Thread.sleep(1100)
-            inject(4.00015)
-            compose.waitUntil(10000) { repository.state.value.distanceMeters > 2.0 }
+            feedUntil(4.0) { repository.state.value.points.isNotEmpty() }
+            feedUntil(4.00015) { repository.state.value.distanceMeters > 2.0 }
             val before = repository.state.value.distanceMeters
             compose.runOnIdle {
                 compose.activity.startService(
@@ -100,9 +104,7 @@ class FusedLocationIntegrationTest {
                 )
             }
             compose.waitUntil(10000) { !repository.state.value.hasSignal }
-            Thread.sleep(1200)
-            inject(4.001)
-            compose.waitUntil(10000) { repository.state.value.hasSignal }
+            feedUntil(4.001) { repository.state.value.hasSignal }
             assertEquals(Recording.RECORDING, repository.state.value.recording)
             assertEquals(before, repository.state.value.distanceMeters, 0.01)
             compose.runOnIdle {
