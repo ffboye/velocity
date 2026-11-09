@@ -27,3 +27,48 @@ jobs:
           chmod +x gradlew
           ./gradlew checkKotlinFormat :app:lintDebug :app:testDebugUnitTest :app:assembleDebug --console=plain
           node --test scripts/generate-update.test.mjs
+  emulator:
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: 'false'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Prepare SDK and emulator acceleration
+        run: |
+          chmod +x gradlew
+          sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Test recording, storage, maps and process recovery
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedDebugAndroidTest --console=plain
+            ANDROID_SERIAL=emulator-5554 node scripts/check-recording-recovery.mjs
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: emulator-test-reports
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+            build/recording-recovery/
+          retention-days: 7

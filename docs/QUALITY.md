@@ -1,6 +1,6 @@
 # Release quality and GPS diagnostics
 
-Velocity 1.3.0 keeps the existing application ID, backward-compatible journey format and signing certificate. Existing files without names, notes or graph samples load with empty defaults; old routes are preserved. No uninstall is needed for release-signed installations.
+Velocity keeps the existing application ID, backward-compatible journey format and signing certificate. Existing files without names, notes or graph samples load with empty defaults; old routes are preserved. No uninstall is needed for release-signed installations.
 
 ## Satellite data
 
@@ -12,7 +12,7 @@ Fused location remains active alongside raw GPS. Its location accuracy and fix a
 
 Listeners are removed when idle in the background and restored when the activity returns. A foreground recording retains its location listeners. Permission loss or device location being switched off clears live readings and the distance anchor. Reconnection starts a new route segment while retaining journey statistics. Late callbacks from old registrations are ignored.
 
-Active journey controls remain visible on all four tabs. Saves are serialized and conflated, with revisions preventing an older completed write from marking newer changes as saved. Update installation is blocked while recording, paused, loading, saving, or after a failed save. A persistent save error offers Retry save; installation becomes available after the retry succeeds.
+Active journey controls remain visible on every tab. Saves are serialized and conflated, with revisions preventing an older completed write from marking newer changes as saved. Update installation is blocked while recording, paused, loading, saving, or after a failed save. A persistent save error offers Retry save; installation becomes available after the retry succeeds.
 
 ## Verification
 
@@ -24,4 +24,31 @@ Recorded time includes stationary time while recording and excludes manual pause
 
 Automated checks cover satellite normalization and freshness, Android GNSS report adaptation, live/unavailable diagnostic UI, four-tab navigation and Back, fused location without raw GPS, background recording, device location off/on reconnection, pause/finish and disk persistence, pending-save installation blocking, failed-write recovery, backups, GPX export and updater integrity. Instrumentation uses isolated test data and Android mock providers; no demonstration satellites are included in the app.
 
-The release workflow runs formatting, unit tests, lint and signed APK/manifest verification before publication. Real satellite reception, battery consumption and Samsung-specific background behavior still require outdoor physical-device checks. Passing emulator tests does not establish those properties.
+The checks workflow runs formatting, unit tests, lint, Android instrumentation and process-death recovery on main and pull requests. Releases repeat those checks, then install the exact signed APK and test startup, automatic-update transport and map navigation before publication. Failure artifacts contain test reports and bounded emulator diagnostics, never signing keys.
+
+## Process-death regression
+
+Run on a disposable emulator with the debug app installed. This starts a journey, waits for a real ten-second background checkpoint, kills the app process, and relaunches twice. It verifies exact checkpoint recovery, no duplicate history, no automatic recording resume, and preservation of existing journeys. It refuses physical-device serials and never clears app data.
+
+```powershell
+$env:ANDROID_SERIAL = 'emulator-5556'
+$env:ADB_PATH = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
+.\gradlew.bat :app:connectedDebugAndroidTest
+node scripts/check-recording-recovery.mjs
+```
+
+The release CI emulator is disposable; only there is the debug package uninstalled before testing the differently signed release APK. A user's phone must receive release updates over the installed app.
+
+## Physical-phone release checklist
+
+Emulator checks do not establish real satellite reception, battery consumption or Samsung-specific background behavior. On the S24 Ultra:
+
+- Install over the previous release and confirm existing names, notes, graphs and routes remain.
+- Start outdoors, lock the screen for at least 15 minutes, then confirm recording time and route continued. Compare battery use under similar conditions rather than assuming an improvement.
+- Turn device location off and on; confirm clear signal feedback and a route gap without a distance jump.
+- Pause, background, resume and finish; confirm paused time is excluded from the average.
+- Try denied/revoked location permission and weak reception; confirm recovery controls remain usable.
+- Enable offline support only when wanted, download a small area, then test its map in airplane mode. Check pause/delete controls.
+- Export and restore a backup, confirming names, notes, graphs and routes. Check large text and TalkBack on the main controls.
+
+Record device/Android version, app version and observed results. Do not label unperformed phone checks as passed.

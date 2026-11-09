@@ -113,9 +113,7 @@ class GpsConnectivityTest {
         )
         compose.onNodeWithTag("gps-content").performScrollToNode(hasText("SATELLITE RECEIVER"))
         compose
-            .onNodeWithText(
-                "This device isn't reporting satellite details. Fused location can still work."
-            )
+            .onNodeWithText("Satellite details unavailable")
             .performScrollTo()
             .assertIsDisplayed()
         compose.onNodeWithContentDescription("Satellites in view: unavailable").assertExists()

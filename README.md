@@ -33,6 +33,8 @@ GPS fixes older than five seconds, poor-accuracy fixes, duplicate/out-of-order f
 
 History and active-trip checkpoints use Android AtomicFile on an IO dispatcher. Checkpoints are written every ten seconds and at recording state changes. Update installation waits for pending saves; failed writes show a persistent Retry save action and block installation until a retry succeeds. If Android terminates the process, the next launch recovers the last checkpoint as an interrupted saved journey; the app never silently resumes recording. At most the portion since the last successful checkpoint can be lost. Paused time is excluded from average speed. Device manufacturers may still stop foreground services under aggressive battery restrictions.
 
+Local files and backups share journey validation. Unreadable or invalid local data is kept in place and recording is disabled; it is never silently replaced by an empty history. Validation and serialization finish before a save starts replacing the previous file. The schema remains version 1, including old journeys without names, notes or graph samples.
+
 ## Build and test on Windows
 
 Use Android Studio with the existing SDK configuration, or PowerShell:
@@ -50,3 +52,5 @@ Debug APK: `app/build/outputs/apk/debug/app-debug.apk`. The original application
 Tests cover GPS-derived speed and units, real distance and timing, pause/resume, stale and inaccurate fixes, GPS jumps, jitter, signal gaps, new-trip reset, JSON persistence, GPX segments, and app navigation. An emulator can validate permission/service/UI behavior and injected GPS data; real-world accuracy and manufacturer-specific background behavior should also be checked outdoors on a phone.
 
 The recording integration test feeds Android's test GPS provider, records movement while the Activity is backgrounded, checks pause/resume, finishes through the UI, and verifies saved JSON on device. It also checks the real journey/installer interlock. Test GPS injection exists only in instrumentation, never in the application. Updater tests exercise signatures, metadata validation, file checks, APK identity, cancellation, interruptions, cache reuse, and installation handoff. The release generator derives metadata from built APKs and has separate Node tests.
+
+Pull requests and main-branch changes run Android instrumentation on an isolated API 35 emulator after static checks. Releases repeat those tests, verify process-death recovery, then install and exercise the actual signed APK before publishing. See [the quality guide](docs/QUALITY.md) for local commands and the physical-phone checklist, and [the development roadmap](docs/DEVELOPMENT.md) for the next priorities.

@@ -53,26 +53,30 @@ object JourneyCodec {
 
     private fun decode(json: JSONObject): Journey {
         val points = json.getJSONArray("points")
+        require(points.length() <= 6000) { "Too many route points" }
+        val samples = if (json.has("samples")) json.getJSONArray("samples") else null
+        require((samples?.length() ?: 0) <= 12000) { "Too many speed samples" }
         return Journey(
-            json.getString("id"),
-            json.getLong("startedAt"),
-            json.getLong("durationMillis"),
-            json.getDouble("distanceMeters"),
-            json.getDouble("maxSpeed"),
-            (0 until points.length()).map { i ->
-                val p = points.getJSONArray(i)
-                RoutePoint(p.getDouble(0), p.getDouble(1), p.getLong(2), p.getInt(3))
-            },
-            json.optBoolean("interrupted"),
-            json.optString("name", ""),
-            json.optString("notes", ""),
-            json.optJSONArray("samples")?.let { samples ->
-                (0 until samples.length()).map { index ->
-                    val s = samples.getJSONArray(index)
-                    SpeedSample(s.getLong(0), s.getDouble(1), s.getInt(2))
-                }
-            } ?: emptyList(),
-        )
+                json.getString("id"),
+                json.getLong("startedAt"),
+                json.getLong("durationMillis"),
+                json.getDouble("distanceMeters"),
+                json.getDouble("maxSpeed"),
+                (0 until points.length()).map { i ->
+                    val p = points.getJSONArray(i)
+                    RoutePoint(p.getDouble(0), p.getDouble(1), p.getLong(2), p.getInt(3))
+                },
+                json.optBoolean("interrupted"),
+                json.optString("name", ""),
+                json.optString("notes", ""),
+                samples?.let { samples ->
+                    (0 until samples.length()).map { index ->
+                        val s = samples.getJSONArray(index)
+                        SpeedSample(s.getLong(0), s.getDouble(1), s.getInt(2))
+                    }
+                } ?: emptyList(),
+            )
+            .also(JourneyValidation::validate)
     }
 
     fun encodeAll(journeys: List<Journey>, active: Journey?): String =
@@ -88,9 +92,11 @@ object JourneyCodec {
         val root = JSONObject(text)
         require(root.getInt("schema") == 1) { "Unsupported journey file" }
         val list = root.getJSONArray("journeys")
+        val active =
+            if (root.has("active") && !root.isNull("active")) root.getJSONObject("active") else null
         return StoredJourneys(
             (0 until list.length()).map { decode(list.getJSONObject(it)) },
-            root.optJSONObject("active")?.let { decode(it) },
+            active?.let { decode(it) },
         )
     }
 
@@ -128,20 +134,32 @@ object JourneyCodec {
             .replace("'", "&apos;")
 }
 
-class JourneyStorage(directory: File) {
+class JourneyStorage(private val directory: File) {
     private val file = AtomicFile(File(directory, "journeys.json"))
 
     fun load(): StoredJourneys =
         try {
             file.openRead().bufferedReader().use { JourneyCodec.decodeAll(it.readText()) }
-        } catch (_: java.io.FileNotFoundException) {
+        } catch (missing: java.io.FileNotFoundException) {
+            // An unreadable existing file (or invalid parent) is not an empty history.
+            if (
+                file.baseFile.exists() ||
+                    File(directory, "journeys.json.bak").exists() ||
+                    (directory.exists() &&
+                        (!directory.isDirectory || !directory.canRead() || !directory.canExecute()))
+            ) {
+                throw missing
+            }
             StoredJourneys(emptyList(), null)
         }
 
     fun save(journeys: List<Journey>, active: Journey?) {
+        journeys.forEach(JourneyValidation::validate)
+        active?.let(JourneyValidation::validate)
+        val bytes = JourneyCodec.encodeAll(journeys, active).toByteArray(Charsets.UTF_8)
         val output = file.startWrite()
         try {
-            output.write(JourneyCodec.encodeAll(journeys, active).toByteArray(Charsets.UTF_8))
+            output.write(bytes)
             file.finishWrite(output)
         } catch (error: Exception) {
             file.failWrite(output)

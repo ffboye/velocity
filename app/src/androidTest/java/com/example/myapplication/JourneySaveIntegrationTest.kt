@@ -17,8 +17,7 @@ class JourneySaveIntegrationTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
         val directory = File(context.cacheDir, "save-check-${UUID.randomUUID()}")
-        // A file where the directory should be makes AtomicFile writes fail reliably.
-        directory.writeText("temporary storage obstacle")
+        assertTrue(directory.mkdir())
         val isolatedContext =
             object : ContextWrapper(context) {
                 override fun getFilesDir() = directory
@@ -36,6 +35,10 @@ class JourneySaveIntegrationTest {
         try {
             instrumentation.runOnMainSync { repository = JourneyRepository(isolatedContext) }
             waitFor { !repository.state.value.loading }
+            assertTrue(repository.state.value.storageReady)
+            // Fail storage after a successful read, rather than disguising a read failure.
+            assertTrue(directory.delete())
+            directory.writeText("temporary storage obstacle")
             instrumentation.runOnMainSync { repository.persist() }
             waitFor { repository.state.value.saveFailed }
             instrumentation.runOnMainSync { assertFalse(repository.tryBeginInstallation()) }

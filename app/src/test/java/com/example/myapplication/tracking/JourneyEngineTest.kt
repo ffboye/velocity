@@ -5,6 +5,25 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class JourneyEngineTest {
+    @Test
+    fun savedSnapshotsStayUnchangedDuringRecordingAndNextJourney() {
+        val engine = JourneyEngine()
+        engine.start("first", 0, 1000)
+        engine.accept(fix(1000), 1000)
+        val checkpoint = engine.snapshot()!!
+        engine.tick(1500)
+        engine.accept(fix(2000, 0.0001), 2000)
+        assertEquals(1, checkpoint.points.size)
+        assertEquals(2, engine.points.size)
+        val finished = engine.finish(3000)!!
+        engine.start("second", 4000, 4000)
+        assertTrue(engine.points.isEmpty())
+        engine.accept(fix(4000, 0.0002), 4000)
+        assertEquals(1, checkpoint.points.size)
+        assertEquals(2, finished.points.size)
+        assertNotEquals(finished.points.first(), engine.points.first())
+    }
+
     private fun fix(
         time: Long,
         longitude: Double = 0.0,

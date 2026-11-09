@@ -115,10 +115,18 @@ class JourneyEngine {
     private var anchor: GpsFix? = null
     private var segment = 0
     private val route = mutableListOf<RoutePoint>()
+    private var routeSnapshot: List<RoutePoint> = emptyList()
+    private var routeChanged = false
     private val speedSamples = mutableListOf<SpeedSample>()
     private var sampleInterval = 1000L
     val points: List<RoutePoint>
-        get() = route.toList()
+        get() {
+            if (routeChanged) {
+                routeSnapshot = route.toList()
+                routeChanged = false
+            }
+            return routeSnapshot
+        }
 
     fun start(id: String, wallMillis: Long, elapsedMillis: Long) {
         if (recording != Recording.IDLE) return
@@ -128,6 +136,8 @@ class JourneyEngine {
         distanceMeters = 0.0
         maxSpeed = 0.0
         route.clear()
+        routeSnapshot = emptyList()
+        routeChanged = false
         speedSamples.clear()
         sampleInterval = 1000L
         anchor = null
@@ -237,6 +247,7 @@ class JourneyEngine {
             if (anchor != null) segment++
             anchor = value
             route.add(RoutePoint(value.latitude, value.longitude, value.wallMillis, segment))
+            routeChanged = true
         } else {
             val old = anchor!!
             val step = distance(old.latitude, old.longitude, value.latitude, value.longitude)
@@ -245,6 +256,7 @@ class JourneyEngine {
                 distanceMeters += step
                 anchor = value
                 route.add(RoutePoint(value.latitude, value.longitude, value.wallMillis, segment))
+                routeChanged = true
             }
         }
         if (route.size > 6000) {
