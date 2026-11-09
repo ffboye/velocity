@@ -24,6 +24,13 @@ class ReadabilityIntegrationTest {
         android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes() }
     }
 
+    private fun screenshot(name: String) {
+        compose.waitForIdle()
+        // Semantics can lead the rendered surface during a page transition.
+        Thread.sleep(300)
+        shell("screencap -p /data/local/tmp/velocity-readability-$name.png")
+    }
+
     @Test
     fun easyReadingIsRememberedAndCriticalControlsFitWithLargeSystemText() {
         // This case changes device text size; never modify a physical phone's setting.
@@ -39,7 +46,7 @@ class ReadabilityIntegrationTest {
             compose.runOnIdle { repository.easyReading(false) }
             compose.waitUntil(10000) { compose.onNodeWithText("Start journey").isDisplayed() }
             compose.onNodeWithText("Start journey").assertHeightIsAtLeast(64.dp)
-            shell("screencap -p /data/local/tmp/velocity-readability-standard.png")
+            screenshot("standard")
             compose.onNodeWithText("Settings", useUnmergedTree = true).performClick()
             compose.onNodeWithContentDescription("Easy reading").performScrollTo().performClick()
             compose.waitUntil(10000) { repository.state.value.easyReading }
@@ -54,11 +61,20 @@ class ReadabilityIntegrationTest {
             compose.waitUntil(15000) { compose.activity.resources.configuration.fontScale >= 1.49f }
             compose.onNodeWithContentDescription("Easy reading").assertIsOn()
             compose.onNodeWithText("Speed", useUnmergedTree = true).performClick()
+            compose.waitUntil(15000) {
+                compose.onNodeWithText("Start journey").isDisplayed() &&
+                    compose
+                        .onNodeWithText("Start journey")
+                        .fetchSemanticsNode()
+                        .layoutInfo
+                        .density
+                        .fontScale >= 1.70f
+            }
             compose.onNodeWithText("Start journey").assertIsDisplayed().assertHeightIsAtLeast(72.dp)
             for (label in listOf("Speed", "Journeys", "Settings")) compose
                 .onNodeWithText(label, useUnmergedTree = true)
                 .assertIsDisplayed()
-            shell("screencap -p /data/local/tmp/velocity-readability-large.png")
+            screenshot("large")
             compose.onNodeWithText("Settings", useUnmergedTree = true).performClick()
             compose.waitUntil(10000) { !app.maps.state.value.loading }
             compose.runOnIdle { app.maps.enable(true) }
