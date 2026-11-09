@@ -34,6 +34,7 @@ Run on a disposable emulator with the debug app installed. This starts a journey
 $env:ANDROID_SERIAL = 'emulator-5556'
 $env:ADB_PATH = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
 .\gradlew.bat :app:connectedDebugAndroidTest
+& $env:ADB_PATH -s $env:ANDROID_SERIAL install -r app/build/outputs/apk/debug/app-debug.apk
 node scripts/check-recording-recovery.mjs
 ```
 
