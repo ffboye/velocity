@@ -61,13 +61,15 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
-            ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedDebugAndroidTest --console=plain || { mkdir -p build/ui-checks; adb -s emulator-5554 pull /data/local/tmp/velocity-ui-audit build/ui-checks/audit || true; exit 1; }
+            ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedDebugAndroidTest --console=plain || { mkdir -p build/ui-checks; adb -s emulator-5554 pull /data/local/tmp/velocity-ui-audit build/ui-checks/audit || true; adb -s emulator-5554 pull /data/local/tmp/velocity-motion-pressed.png build/ui-checks/motion-pressed.png || true; adb -s emulator-5554 pull /data/local/tmp/velocity-motion-disabled.png build/ui-checks/motion-disabled.png || true; exit 1; }
             mkdir -p build/ui-checks
             adb -s emulator-5554 pull /data/local/tmp/velocity-journey-route.png build/ui-checks/journey-route.png
             adb -s emulator-5554 pull /data/local/tmp/velocity-offline-settings.png build/ui-checks/offline-settings.png
             adb -s emulator-5554 pull /data/local/tmp/velocity-readability-standard.png build/ui-checks/readability-standard.png
             adb -s emulator-5554 pull /data/local/tmp/velocity-readability-large.png build/ui-checks/readability-large.png
             adb -s emulator-5554 pull /data/local/tmp/velocity-ui-audit build/ui-checks/audit
+            adb -s emulator-5554 pull /data/local/tmp/velocity-motion-pressed.png build/ui-checks/motion-pressed.png
+            adb -s emulator-5554 pull /data/local/tmp/velocity-motion-disabled.png build/ui-checks/motion-disabled.png
             adb -s emulator-5554 install -r app/build/outputs/apk/debug/app-debug.apk
             ANDROID_SERIAL=emulator-5554 node scripts/check-recording-recovery.mjs
       - uses: actions/upload-artifact@v4

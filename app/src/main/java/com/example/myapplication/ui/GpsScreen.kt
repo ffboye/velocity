@@ -1,5 +1,7 @@
 package com.example.myapplication.ui
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -240,6 +242,12 @@ private fun DetailRow(label: String, value: String) {
 
 @Composable
 private fun SatelliteSignal(satellite: Satellite) {
+    val strength by
+        animateFloatAsState(
+            (satellite.cn0 / 60f).coerceIn(0f, 1f),
+            tween(320),
+            label = "Satellite signal strength",
+        )
     Surface(
         shape = RoundedCornerShape(18.dp),
         color = Panel,
@@ -270,7 +278,7 @@ private fun SatelliteSignal(satellite: Satellite) {
                 )
             }
             LinearProgressIndicator(
-                progress = { (satellite.cn0 / 60f).coerceIn(0f, 1f) },
+                progress = { strength },
                 modifier = Modifier.fillMaxWidth().height(6.dp),
                 color = if (satellite.usedInFix) Green else Pink,
                 trackColor = Border,

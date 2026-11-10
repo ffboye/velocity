@@ -1,10 +1,12 @@
 package com.example.myapplication.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.style.TextAlign
@@ -19,12 +21,15 @@ internal fun AppButton(
     shape: Shape = RoundedCornerShape(14.dp),
     content: @Composable RowScope.() -> Unit,
 ) {
+    val interactions = remember { MutableInteractionSource() }
     Button(
-        onClick = onClick,
+        onClick = clickWithFeedback(onClick),
+        interactionSource = interactions,
         modifier =
             modifier
                 .heightIn(min = if (LocalEasyReading.current) 72.dp else 64.dp)
-                .widthIn(min = 80.dp),
+                .widthIn(min = 80.dp)
+                .pressMotion(interactions, enabled),
         enabled = enabled,
         shape = shape,
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
@@ -45,12 +50,15 @@ internal fun AppOutlinedButton(
     contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
     content: @Composable RowScope.() -> Unit,
 ) {
+    val interactions = remember { MutableInteractionSource() }
     OutlinedButton(
         onClick = onClick,
+        interactionSource = interactions,
         modifier =
             modifier
                 .heightIn(min = if (LocalEasyReading.current) 72.dp else 64.dp)
-                .widthIn(min = 80.dp),
+                .widthIn(min = 80.dp)
+                .pressMotion(interactions, enabled),
         enabled = enabled,
         shape = shape,
         contentPadding = contentPadding,
@@ -75,12 +83,15 @@ internal fun AppTextButton(
     enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit,
 ) {
+    val interactions = remember { MutableInteractionSource() }
     TextButton(
         onClick = onClick,
+        interactionSource = interactions,
         modifier =
             modifier
                 .heightIn(min = if (LocalEasyReading.current) 64.dp else 56.dp)
-                .widthIn(min = 72.dp),
+                .widthIn(min = 72.dp)
+                .pressMotion(interactions, enabled),
         enabled = enabled,
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
         content = {

@@ -1,10 +1,11 @@
 package com.example.myapplication.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -193,10 +194,11 @@ fun VelocityApp(
                         .forEach { (index, label) ->
                             NavigationBarItem(
                                 selected = page == index,
-                                onClick = {
-                                    selected = null
-                                    onPage(index)
-                                },
+                                onClick =
+                                    clickWithFeedback {
+                                        selected = null
+                                        onPage(index)
+                                    },
                                 icon = { NavGlyph(index, page == index) },
                                 label = {
                                     Text(
@@ -222,11 +224,10 @@ fun VelocityApp(
             }
         },
     ) { padding ->
-        val content = Modifier.fillMaxSize().padding(padding)
-        Crossfade(targetState = page, animationSpec = tween(160), label = "Page transition") {
-            visiblePage ->
-            pageState.SaveableStateProvider(visiblePage) {
-                when (visiblePage) {
+        val content = Modifier.fillMaxSize()
+        PageArrival(page, Modifier.fillMaxSize().padding(padding)) {
+            pageState.SaveableStateProvider(page) {
+                when (page) {
                     1 -> JourneysScreen(state, content) { selected = it.id }
                     3 ->
                         GpsScreen(
@@ -324,10 +325,19 @@ private fun Dashboard(
             modifier = Modifier.fillMaxWidth(),
         ) {
             if (state.recording != Recording.IDLE)
-                Eyebrow(
-                    if (state.recording == Recording.PAUSED) "JOURNEY PAUSED"
-                    else "JOURNEY IN PROGRESS"
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(AppSpace.Related),
+                ) {
+                    StatusDot(
+                        if (state.recording == Recording.PAUSED) Amber else Green,
+                        state.recording,
+                    )
+                    Eyebrow(
+                        if (state.recording == Recording.PAUSED) "JOURNEY PAUSED"
+                        else "JOURNEY IN PROGRESS"
+                    )
+                }
             SpeedDial(state)
             val detail =
                 when {
@@ -423,7 +433,12 @@ private fun SpeedDial(state: DriveState) {
     val maximum = if (state.unit == SpeedUnit.KMH) 200.0 else 120.0
     val fraction by
         animateFloatAsState((speed / maximum).coerceIn(0.0, 1.0).toFloat(), label = "Live speed")
-    val accent = if (state.speedLimit > 0 && state.speed > state.speedLimit) Amber else Pink
+    val accent by
+        animateColorAsState(
+            if (state.speedLimit > 0 && state.speed > state.speedLimit) Amber else Pink,
+            animationSpec = tween(220),
+            label = "Speed reminder colour",
+        )
     BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         val diameter = minOf(maxWidth, 272.dp)
         val numberSize = with(LocalDensity.current) { minOf(96.sp.toDp(), diameter / 2.8f).toSp() }
@@ -563,8 +578,15 @@ private fun JourneysScreen(state: DriveState, modifier: Modifier, select: (Journ
                 }
             }
         items(state.journeys, key = { it.id }) { journey ->
+            val interactions = remember { MutableInteractionSource() }
             GlassCard(
-                Modifier.clickable { select(journey) }
+                Modifier.pressMotion(interactions, pressedScale = 0.992f)
+                    .clickable(
+                        interactionSource = interactions,
+                        indication = LocalIndication.current,
+                    ) {
+                        select(journey)
+                    }
                     .semantics {
                         contentDescription =
                             "Journey ${date(journey.startedAt)}, ${decimal(journey.distanceMeters / state.unit.distanceDivisor)} ${state.unit.distanceLabel}"
@@ -1086,12 +1108,16 @@ internal fun Header(
 
 @Composable
 private fun SignalPill(state: DriveState, onClick: (() -> Unit)? = null) {
-    val color =
-        when (state.locationQuality) {
-            LocationQuality.GOOD -> Green
-            LocationQuality.WEAK -> Amber
-            else -> Muted
-        }
+    val color by
+        animateColorAsState(
+            when (state.locationQuality) {
+                LocationQuality.GOOD -> Green
+                LocationQuality.WEAK -> Amber
+                else -> Muted
+            },
+            animationSpec = tween(220),
+            label = "GPS quality colour",
+        )
     Row(
         Modifier.background(color.copy(alpha = 0.08f), CircleShape)
             .then(
@@ -1103,7 +1129,7 @@ private fun SignalPill(state: DriveState, onClick: (() -> Unit)? = null) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Box(Modifier.size(5.dp).background(color, CircleShape))
+        StatusDot(color, state.locationQuality)
         Text(
             "GPS · ${state.locationQuality.label.uppercase(Locale.getDefault())}",
             color = color,
@@ -1116,8 +1142,15 @@ private fun SignalPill(state: DriveState, onClick: (() -> Unit)? = null) {
 
 @Composable
 private fun NavGlyph(index: Int, selected: Boolean, modifier: Modifier = Modifier) {
-    val color = if (selected) Pink else Muted
-    Canvas(modifier.size(26.dp)) {
+    val color = animateColorAsState(if (selected) Pink else Muted, tween(180), label = "Tab colour")
+    val scale = animateFloatAsState(if (selected) 1.08f else 1f, tween(180), label = "Tab emphasis")
+    Canvas(
+        modifier.size(26.dp).graphicsLayer {
+            scaleX = scale.value
+            scaleY = scale.value
+        }
+    ) {
+        val color = color.value
         val stroke = 1.7.dp.toPx()
         when (index) {
             0 -> {
