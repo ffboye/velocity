@@ -692,7 +692,12 @@ private fun SettingsScreen(
                     onAwake,
                 )
                 HorizontalDivider(color = Border.copy(alpha = 0.55f))
-                PreferenceRow("Show GPS tab", "", state.showGpsTab, onGpsTabVisibility)
+                PreferenceRow(
+                    "Show GPS tab",
+                    "Signal and satellite details",
+                    state.showGpsTab,
+                    onGpsTabVisibility,
+                )
             }
         }
         GlassCard {

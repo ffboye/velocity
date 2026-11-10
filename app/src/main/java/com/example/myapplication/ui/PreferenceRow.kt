@@ -18,18 +18,25 @@ internal fun PreferenceRow(
     onCheckedChange: (Boolean) -> Unit,
     accessibilityLabel: String = title,
 ) {
+    val hasSubtitle = subtitle.isNotBlank()
+    val minimumHeight =
+        if (hasSubtitle) {
+            if (LocalEasyReading.current) 80.dp else 72.dp
+        } else {
+            if (LocalEasyReading.current) 64.dp else 56.dp
+        }
     Row(
         Modifier.fillMaxWidth()
             .semantics(mergeDescendants = true) { contentDescription = accessibilityLabel }
             .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
-            .heightIn(min = if (LocalEasyReading.current) 80.dp else 72.dp)
+            .heightIn(min = minimumHeight)
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
-            if (subtitle.isNotBlank())
+            if (hasSubtitle)
                 Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Muted)
         }
         Switch(checked = checked, onCheckedChange = null)
