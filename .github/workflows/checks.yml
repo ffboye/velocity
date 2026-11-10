@@ -61,7 +61,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
-            ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedDebugAndroidTest --console=plain
+            ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedDebugAndroidTest --console=plain || { mkdir -p build/ui-checks; adb -s emulator-5554 pull /data/local/tmp/velocity-ui-audit build/ui-checks/audit || true; exit 1; }
             mkdir -p build/ui-checks
             adb -s emulator-5554 pull /data/local/tmp/velocity-journey-route.png build/ui-checks/journey-route.png
             adb -s emulator-5554 pull /data/local/tmp/velocity-offline-settings.png build/ui-checks/offline-settings.png
@@ -80,3 +80,4 @@ jobs:
             build/recording-recovery/
             build/ui-checks/
           retention-days: 7
+

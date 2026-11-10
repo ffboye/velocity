@@ -23,6 +23,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class UiSpacingAuditTest {
     @get:Rule val compose = createComposeRule()
+    private val layoutIssues = mutableListOf<String>()
 
     private fun shell(command: String) {
         val file =
@@ -48,6 +49,7 @@ class UiSpacingAuditTest {
     private fun audit(name: String) {
         compose.waitForIdle()
         Thread.sleep(300)
+        shell("screencap -p /data/local/tmp/velocity-ui-audit/$name.png")
         val text =
             compose
                 .onAllNodes(
@@ -60,11 +62,18 @@ class UiSpacingAuditTest {
                 val results = mutableListOf<TextLayoutResult>()
                 node.config.getOrNull(SemanticsActions.GetTextLayoutResult)?.action?.invoke(results)
                 results.forEach { result ->
-                    assertFalse(
-                        "$name: clipped text '${result.layoutInput.text}'",
-                        result.hasVisualOverflow &&
-                            result.layoutInput.overflow != TextOverflow.Ellipsis,
-                    )
+                    // Compose rounds the measured size to integer pixels. Subpixel overflow is
+                    // harmless; a lost line or overflow beyond that rounding tolerance is not.
+                    val paragraph = result.multiParagraph
+                    val clipped =
+                        paragraph.didExceedMaxLines ||
+                            paragraph.width > result.size.width + 1f ||
+                            paragraph.height > result.size.height + 1f
+                    if (clipped && result.layoutInput.overflow != TextOverflow.Ellipsis) {
+                        layoutIssues +=
+                            "$name: clipped text '${result.layoutInput.text}' " +
+                                "(paragraph ${paragraph.width} x ${paragraph.height}, size ${result.size})"
+                    }
                 }
             }
         }
@@ -79,12 +88,9 @@ class UiSpacingAuditTest {
             if (root(a).id != root(b).id || ancestor(a, b) || ancestor(b, a)) continue
             val intersection =
                 a.boundsInRoot.intersect(b.boundsInRoot).intersect(root(a).boundsInRoot)
-            assertFalse(
-                "$name: overlapping controls ${a.config} / ${b.config}",
-                intersection.width > 1f && intersection.height > 1f,
-            )
+            if (intersection.width > 1f && intersection.height > 1f)
+                layoutIssues += "$name: overlapping controls ${a.config} / ${b.config}"
         }
-        shell("screencap -p /data/local/tmp/velocity-ui-audit/$name.png")
     }
 
     @Test
@@ -343,5 +349,7 @@ class UiSpacingAuditTest {
                 capture("update-${phase.name.lowercase()}")
             }
         }
+        assertTrue(layoutIssues.joinToString("\n"), layoutIssues.isEmpty())
     }
 }
+
