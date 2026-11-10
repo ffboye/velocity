@@ -135,4 +135,3 @@ jobs:
       - name: Clean private key files
         if: always()
         run: rm -f "$RUNNER_TEMP/velocity.p12" "$RUNNER_TEMP/manifest-key.pem"
-

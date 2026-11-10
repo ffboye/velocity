@@ -352,4 +352,3 @@ class UiSpacingAuditTest {
         assertTrue(layoutIssues.joinToString("\n"), layoutIssues.isEmpty())
     }
 }
-

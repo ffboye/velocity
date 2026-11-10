@@ -80,4 +80,3 @@ jobs:
             build/recording-recovery/
             build/ui-checks/
           retention-days: 7
-
