@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
@@ -117,7 +118,7 @@ fun UpdateDialog(
         ) {
             Column(
                 Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 Box(
                     Modifier.fillMaxWidth()
@@ -200,7 +201,10 @@ fun UpdateDialog(
 private fun DownloadProgress(progress: Float) {
     val animated by animateFloatAsState(progress.coerceIn(0f, 1f), label = "Update download")
     LinearProgressIndicator(progress = { animated }, modifier = Modifier.fillMaxWidth())
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
         Text("Downloading  ${(progress * 100).toInt()}%", fontSize = 14.sp)
     }

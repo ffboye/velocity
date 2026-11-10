@@ -112,7 +112,7 @@ fun VelocityApp(
                     Row(
                         Modifier.statusBarsPadding()
                             .fillMaxWidth()
-                            .padding(horizontal = 18.dp, vertical = 8.dp),
+                            .padding(horizontal = AppSpace.Page, vertical = AppSpace.Related),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
@@ -134,8 +134,9 @@ fun VelocityApp(
                         Modifier.fillMaxWidth()
                             .clickable { onPage(0) }
                             .heightIn(min = 48.dp)
-                            .padding(horizontal = 24.dp, vertical = 8.dp),
+                            .padding(horizontal = AppSpace.Page, vertical = AppSpace.Related),
                         horizontalArrangement = Arrangement.spacedBy(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         Text(
                             if (state.recording == Recording.PAUSED) "Journey paused"
@@ -150,7 +151,7 @@ fun VelocityApp(
                         )
                     }
                 if (page == 0 || state.recording != Recording.IDLE)
-                    Box(Modifier.padding(horizontal = 22.dp, vertical = 12.dp)) {
+                    Box(Modifier.padding(horizontal = AppSpace.Page, vertical = AppSpace.Group)) {
                         if (state.recording == Recording.IDLE) {
                             PrimaryButton(
                                 if (state.loading) "Loading journeys…" else "Start journey",
@@ -306,10 +307,9 @@ private fun Dashboard(
     onConnectivity: () -> Unit,
 ) {
     Column(
-        modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+        modifier.verticalScroll(rememberScrollState()).padding(AppSpace.Page),
+        verticalArrangement = Arrangement.spacedBy(AppSpace.Section),
     ) {
-        Spacer(Modifier.height(16.dp))
         Header("Speedometer", state, onConnectivity)
         if (!state.trackingEnabled)
             GlassCard {
@@ -319,9 +319,9 @@ private fun Dashboard(
             }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(AppSpace.Related),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Spacer(Modifier.height(6.dp))
             if (state.recording != Recording.IDLE)
                 Eyebrow(
                     if (state.recording == Recording.PAUSED) "JOURNEY PAUSED"
@@ -351,14 +351,13 @@ private fun Dashboard(
             )
         }
         GlassCard {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            StatsRow {
                 Stat(
                     "DISTANCE",
                     decimal(state.distanceMeters / state.unit.distanceDivisor),
                     state.unit.distanceLabel,
                     Modifier.weight(1f),
                 )
-                Box(Modifier.height(42.dp).width(1.dp).background(Border))
                 Stat(
                     "RECORDED TIME",
                     duration(state.durationMillis),
@@ -366,8 +365,8 @@ private fun Dashboard(
                     Modifier.weight(1f),
                 )
             }
-            HorizontalDivider(Modifier.padding(vertical = 18.dp), color = Border)
-            Row(Modifier.fillMaxWidth()) {
+            HorizontalDivider(color = Border)
+            StatsRow {
                 Stat(
                     "AVERAGE",
                     decimal(state.averageSpeed * state.unit.multiplier, 0),
@@ -386,7 +385,7 @@ private fun Dashboard(
             state.locationProblem?.let {
                 Text(it, color = Amber, style = MaterialTheme.typography.bodySmall)
             }
-            FlowRow {
+            ActionRow {
                 AppTextButton(onClick = onRetryGps) { Text("Retry GPS") }
                 AppTextButton(onClick = onConnectivity) { Text("View GPS status") }
             }
@@ -398,7 +397,7 @@ private fun Dashboard(
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 18.sp,
                 )
-                Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                ActionRow {
                     AppTextButton(onClick = onLocation) { Text("Enable GPS access") }
                     AppTextButton(onClick = onAppSettings) { Text("Permissions") }
                 }
@@ -412,12 +411,8 @@ private fun Dashboard(
         if (state.points.isNotEmpty())
             GlassCard {
                 Eyebrow("YOUR ROUTE")
-                RouteTrace(
-                    state.points,
-                    Modifier.fillMaxWidth().height(145.dp).padding(top = 12.dp),
-                )
+                RouteTrace(state.points, Modifier.fillMaxWidth().height(145.dp))
             }
-        Spacer(Modifier.height(8.dp))
     }
 }
 
@@ -513,26 +508,25 @@ private fun JourneysScreen(state: DriveState, modifier: Modifier, select: (Journ
     val summary = JourneyTotals.from(state.journeys, System.currentTimeMillis())
     LazyColumn(
         modifier.padding(horizontal = 20.dp).testTag("journeys-content"),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(AppSpace.Section),
         contentPadding = PaddingValues(vertical = 20.dp),
     ) {
         item { Header("Your journeys") }
         if (state.journeys.isEmpty())
             item {
                 GlassCard {
-                    Spacer(Modifier.height(22.dp))
                     NavGlyph(1, true, Modifier.size(38.dp).align(Alignment.CenterHorizontally))
                     Text(
                         if (state.loading) "Loading journeys…" else "No journeys yet",
                         fontSize = 21.sp,
-                        modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 20.dp),
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
                     )
                 }
             }
         if (state.journeys.isNotEmpty())
             item {
                 GlassCard {
-                    Row {
+                    StatsRow {
                         Stat("JOURNEYS", state.journeys.size.toString(), "", Modifier.weight(1f))
                         Stat(
                             "TOTAL DISTANCE",
@@ -544,8 +538,8 @@ private fun JourneysScreen(state: DriveState, modifier: Modifier, select: (Journ
                             Modifier.weight(1f),
                         )
                     }
-                    HorizontalDivider(Modifier.padding(vertical = 16.dp), color = Border)
-                    Row {
+                    HorizontalDivider(color = Border)
+                    StatsRow {
                         Stat(
                             "AVERAGE SPEED",
                             decimal(summary.averageSpeed * state.unit.multiplier, 0),
@@ -563,7 +557,7 @@ private fun JourneysScreen(state: DriveState, modifier: Modifier, select: (Journ
                         "Last 7 days: ${decimal(summary.recentDistance / state.unit.distanceDivisor)} ${state.unit.distanceLabel} · Recorded time: ${duration(summary.recordedMillis)}",
                         color = Muted,
                         fontSize = 14.sp,
-                        modifier = Modifier.padding(top = 16.dp),
+                        modifier = Modifier,
                     )
                 }
             }
@@ -575,9 +569,18 @@ private fun JourneysScreen(state: DriveState, modifier: Modifier, select: (Journ
                             "Journey ${date(journey.startedAt)}, ${decimal(journey.distanceMeters / state.unit.distanceDivisor)} ${state.unit.distanceLabel}"
                     }
             ) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(journey.displayName, fontWeight = FontWeight.SemiBold)
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(AppSpace.Group),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            journey.displayName,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                         Text(
                             if (journey.interrupted) "Recovered recording"
                             else "${date(journey.startedAt)} · ${time(journey.startedAt)}",
@@ -585,15 +588,12 @@ private fun JourneysScreen(state: DriveState, modifier: Modifier, select: (Journ
                             fontSize = 14.sp,
                         )
                     }
-                    Text("View →", color = Pink, fontSize = 14.sp)
+                    Text("View →", color = Pink, fontSize = 14.sp, maxLines = 1, softWrap = false)
                 }
-                RouteTrace(
-                    journey.points,
-                    Modifier.fillMaxWidth().height(105.dp).padding(vertical = 10.dp),
-                )
+                RouteTrace(journey.points, Modifier.fillMaxWidth().height(100.dp))
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(AppSpace.Related),
                 ) {
                     Text(
                         "${decimal(journey.distanceMeters / state.unit.distanceDivisor)} ${state.unit.distanceLabel}",
@@ -632,14 +632,15 @@ private fun SettingsScreen(
         modifier
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+        verticalArrangement = Arrangement.spacedBy(AppSpace.Section),
     ) {
         Header("Settings")
         GlassCard {
             Text("Measurement units", style = MaterialTheme.typography.titleMedium)
             FlowRow(
-                Modifier.padding(top = 8.dp),
+                Modifier,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(AppSpace.Related),
             ) {
                 SpeedUnit.entries.forEach { unit ->
                     FilterChip(
@@ -653,21 +654,23 @@ private fun SettingsScreen(
         }
         GlassCard {
             Eyebrow("DISPLAY")
-            PreferenceRow(
-                "Easy reading",
-                "Larger text and roomier controls",
-                state.easyReading,
-                onEasyReading,
-            )
-            HorizontalDivider(color = Border.copy(alpha = 0.55f))
-            PreferenceRow(
-                "Keep screen awake",
-                "While the speedometer is open",
-                state.keepAwake,
-                onAwake,
-            )
-            HorizontalDivider(color = Border.copy(alpha = 0.55f))
-            PreferenceRow("Show GPS tab", "", state.showGpsTab, onGpsTabVisibility)
+            Column {
+                PreferenceRow(
+                    "Easy reading",
+                    "Larger text and roomier controls",
+                    state.easyReading,
+                    onEasyReading,
+                )
+                HorizontalDivider(color = Border.copy(alpha = 0.55f))
+                PreferenceRow(
+                    "Keep screen awake",
+                    "While the speedometer is open",
+                    state.keepAwake,
+                    onAwake,
+                )
+                HorizontalDivider(color = Border.copy(alpha = 0.55f))
+                PreferenceRow("Show GPS tab", "", state.showGpsTab, onGpsTabVisibility)
+            }
         }
         GlassCard {
             PreferenceRow(
@@ -681,7 +684,7 @@ private fun SettingsScreen(
                     "${decimal(state.speedLimit * state.unit.multiplier, 0)} ${state.unit.label}",
                     color = Pink,
                     style = MaterialTheme.typography.headlineMedium,
-                    modifier = Modifier.padding(top = 12.dp),
+                    modifier = Modifier,
                 )
                 Slider(
                     value = (state.speedLimit * state.unit.multiplier).toFloat(),
@@ -698,13 +701,13 @@ private fun SettingsScreen(
                 if (state.permission) "Precise location enabled"
                 else "Precise location not enabled",
                 style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(top = 12.dp),
+                modifier = Modifier,
             )
             Text(
                 "Your journeys stay on this device.",
                 color = Muted,
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = 4.dp),
+                modifier = Modifier,
             )
             AppTextButton(onClick = { privacyDetails = !privacyDetails }) {
                 Text(if (privacyDetails) "Hide privacy details" else "Privacy details")
@@ -719,7 +722,7 @@ private fun SettingsScreen(
         }
         GlassCard {
             Text("Journey backup", style = MaterialTheme.typography.titleMedium)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ActionRow {
                 AppTextButton(
                     onBackup,
                     enabled = !state.loading && state.recording == Recording.IDLE,
@@ -768,7 +771,9 @@ private fun JourneyDetails(
         ) {
             Column(Modifier.fillMaxSize()) {
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+                    Modifier.fillMaxWidth()
+                        .padding(horizontal = AppSpace.Page, vertical = AppSpace.Group),
+                    horizontalArrangement = Arrangement.spacedBy(AppSpace.Group),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
@@ -786,66 +791,75 @@ private fun JourneyDetails(
                         .fillMaxWidth()
                         .verticalScroll(rememberScrollState())
                         .padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(AppSpace.Section),
                 ) {
-                    Text("${date(journey.startedAt)} · ${time(journey.startedAt)}", color = Muted)
-                    if (journey.notes.isNotBlank()) Text(journey.notes, fontSize = 14.sp)
-                    AppTextButton(onClick = { editing = true }) { Text("Edit name & notes") }
-                    Text(
-                        "Route",
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.semantics { heading() },
-                    )
-                    if (journey.points.isNotEmpty()) {
-                        RouteMap(
-                            journey.points,
-                            Modifier.fillMaxWidth().height(360.dp).clip(RoundedCornerShape(18.dp)),
-                            cameraKey = journey.id,
-                        )
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(20.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RouteMarker("Start", Green)
-                            RouteMarker("Finish", VelocityColors.Text)
-                        }
-                    } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(AppSpace.Related)) {
                         Text(
-                            "No GPS route was recorded for this journey.",
+                            "${date(journey.startedAt)} · ${time(journey.startedAt)}",
                             color = Muted,
-                            style = MaterialTheme.typography.bodyMedium,
                         )
+                        if (journey.notes.isNotBlank()) Text(journey.notes, fontSize = 14.sp)
+                        AppTextButton(onClick = { editing = true }) { Text("Edit name & notes") }
                     }
-                    Row {
-                        Stat(
-                            "DISTANCE",
-                            decimal(journey.distanceMeters / unit.distanceDivisor),
-                            unit.distanceLabel,
-                            Modifier.weight(1f),
+                    Column(verticalArrangement = Arrangement.spacedBy(AppSpace.Group)) {
+                        Text(
+                            "Route",
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.semantics { heading() },
                         )
-                        Stat(
-                            "RECORDED TIME",
-                            duration(journey.durationMillis),
-                            "h:mm:ss",
-                            Modifier.weight(1f),
-                        )
+                        if (journey.points.isNotEmpty()) {
+                            RouteMap(
+                                journey.points,
+                                Modifier.fillMaxWidth(),
+                                cameraKey = journey.id,
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RouteMarker("Start", Green)
+                                RouteMarker("Finish", VelocityColors.Text)
+                            }
+                        } else {
+                            Text(
+                                "No GPS route was recorded for this journey.",
+                                color = Muted,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
                     }
-                    Row {
-                        Stat(
-                            "AVERAGE",
-                            decimal(journey.averageSpeed * unit.multiplier, 0),
-                            unit.label,
-                            Modifier.weight(1f),
-                        )
-                        Stat(
-                            "TOP SPEED",
-                            decimal(journey.maxSpeed * unit.multiplier, 0),
-                            unit.label,
-                            Modifier.weight(1f),
-                        )
-                    }
-                    AppTextButton(onClick = { averageDetails = true }) {
-                        Text("Average calculation")
+                    GlassCard {
+                        StatsRow {
+                            Stat(
+                                "DISTANCE",
+                                decimal(journey.distanceMeters / unit.distanceDivisor),
+                                unit.distanceLabel,
+                                Modifier.weight(1f),
+                            )
+                            Stat(
+                                "RECORDED TIME",
+                                duration(journey.durationMillis),
+                                "h:mm:ss",
+                                Modifier.weight(1f),
+                            )
+                        }
+                        StatsRow {
+                            Stat(
+                                "AVERAGE",
+                                decimal(journey.averageSpeed * unit.multiplier, 0),
+                                unit.label,
+                                Modifier.weight(1f),
+                            )
+                            Stat(
+                                "TOP SPEED",
+                                decimal(journey.maxSpeed * unit.multiplier, 0),
+                                unit.label,
+                                Modifier.weight(1f),
+                            )
+                        }
+                        AppTextButton(onClick = { averageDetails = true }) {
+                            Text("Average calculation")
+                        }
                     }
                     SpeedGraph(journey, unit)
                     if (journey.interrupted)
@@ -854,15 +868,17 @@ private fun JourneyDetails(
                             fontSize = 14.sp,
                             color = Amber,
                         )
-                    AppButton(
-                        onClick = onExport,
-                        enabled = journey.points.isNotEmpty(),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text("Export route as GPX")
-                    }
-                    AppTextButton(onClick = { delete = true }) {
-                        Text("Delete journey", color = Amber)
+                    Column(verticalArrangement = Arrangement.spacedBy(AppSpace.Related)) {
+                        AppButton(
+                            onClick = onExport,
+                            enabled = journey.points.isNotEmpty(),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Export route as GPX")
+                        }
+                        AppTextButton(onClick = { delete = true }) {
+                            Text("Delete journey", color = Amber)
+                        }
                     }
                 }
             }
@@ -993,7 +1009,11 @@ internal fun GlassCard(modifier: Modifier = Modifier, content: @Composable Colum
         contentColor = VelocityColors.Text,
         border = BorderStroke(1.dp, Border.copy(alpha = 0.55f)),
     ) {
-        Column(Modifier.padding(20.dp), content = content)
+        Column(
+            Modifier.padding(AppSpace.Page),
+            verticalArrangement = Arrangement.spacedBy(AppSpace.Group),
+            content = content,
+        )
     }
 }
 
@@ -1011,14 +1031,17 @@ private fun PrimaryButton(label: String, onClick: () -> Unit, enabled: Boolean) 
 
 @Composable
 internal fun Stat(label: String, value: String, unit: String, modifier: Modifier = Modifier) {
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Eyebrow(label)
+    Column(
+        modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Eyebrow(label, minLines = LocalStatLabelLines.current)
         Text(
             value,
             fontSize = if (value.length > 7) 23.sp else 28.sp,
             lineHeight = 32.sp,
             fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(top = 6.dp),
         )
         if (unit.isNotBlank())
             Text(unit, color = Muted, style = MaterialTheme.typography.labelSmall)
@@ -1026,7 +1049,7 @@ internal fun Stat(label: String, value: String, unit: String, modifier: Modifier
 }
 
 @Composable
-internal fun Eyebrow(text: String) {
+internal fun Eyebrow(text: String, minLines: Int = 1) {
     Text(
         text,
         color = Muted,
@@ -1034,6 +1057,7 @@ internal fun Eyebrow(text: String) {
         lineHeight = 20.sp,
         letterSpacing = 1.sp,
         fontWeight = FontWeight.Medium,
+        minLines = minLines,
     )
 }
 
@@ -1045,8 +1069,8 @@ internal fun Header(
 ) {
     FlowRow(
         Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(AppSpace.Related),
     ) {
         Text(
             title,

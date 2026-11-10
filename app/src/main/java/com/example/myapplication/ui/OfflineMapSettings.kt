@@ -3,7 +3,6 @@ package com.example.myapplication.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -11,7 +10,6 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -41,43 +39,48 @@ internal fun OfflineMapSettings(state: DriveState, maps: MapState, controller: O
     var focusArea by remember { mutableStateOf<MapArea?>(null) }
     var deleteId by rememberSaveable { mutableStateOf<Long?>(null) }
     GlassCard(Modifier.testTag("offline-map-settings")) {
-        Text(
-            "Offline maps",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.semantics { heading() },
-        )
-        Text(
-            "Journeys record without internet. Download an area to see its streets offline.",
-            color = Muted,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-        PreferenceRow(
-            "Save maps offline",
-            "",
-            maps.enabled,
-            controller::enable,
-            "Enable offline map downloads",
-        )
-        AnimatedVisibility(visible = maps.enabled) {
-            Column {
-                HorizontalDivider(color = Border.copy(alpha = 0.55f))
-                PreferenceRow(
-                    "Wi-Fi downloads only",
-                    "",
-                    maps.wifiOnly,
-                    controller::wifiOnly,
-                    "Download maps over Wi-Fi only",
-                )
-                AppOutlinedButton(
-                    onClick = {
-                        focusArea = null
-                        picker = true
-                    },
-                    enabled = !maps.loading,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(if (maps.loading) "Loading maps…" else "Choose area to download")
+        Column(verticalArrangement = Arrangement.spacedBy(AppSpace.Related)) {
+            Text(
+                "Offline maps",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.semantics { heading() },
+            )
+            Text(
+                "Journeys record without internet. Download an area to see its streets offline.",
+                color = Muted,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier,
+            )
+        }
+        Column {
+            PreferenceRow(
+                "Save maps offline",
+                "",
+                maps.enabled,
+                controller::enable,
+                "Enable offline map downloads",
+            )
+            AnimatedVisibility(visible = maps.enabled) {
+                Column {
+                    HorizontalDivider(color = Border.copy(alpha = 0.55f))
+                    PreferenceRow(
+                        "Wi-Fi downloads only",
+                        "",
+                        maps.wifiOnly,
+                        controller::wifiOnly,
+                        "Download maps over Wi-Fi only",
+                    )
+                    Spacer(Modifier.height(AppSpace.Related))
+                    AppOutlinedButton(
+                        onClick = {
+                            focusArea = null
+                            picker = true
+                        },
+                        enabled = !maps.loading,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(if (maps.loading) "Loading maps…" else "Choose area to download")
+                    }
                 }
             }
         }
@@ -96,21 +99,18 @@ internal fun OfflineMapSettings(state: DriveState, maps: MapState, controller: O
             )
         }
         if (maps.areas.isNotEmpty()) {
-            HorizontalDivider(
-                Modifier.padding(vertical = 12.dp),
-                color = Border.copy(alpha = 0.55f),
-            )
+            HorizontalDivider(Modifier, color = Border.copy(alpha = 0.55f))
             Text("Downloaded areas", style = MaterialTheme.typography.titleSmall)
             Text(
                 "${maps.areas.size} ${if (maps.areas.size == 1) "area" else "areas"} · about ${mb(maps.areas.sumOf { it.bytes })} MB",
                 color = Muted,
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(top = 4.dp),
+                modifier = Modifier,
             )
             maps.areas.forEach { saved ->
                 Column(
-                    Modifier.fillMaxWidth().padding(top = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(AppSpace.Related),
                 ) {
                     Text(saved.name, style = MaterialTheme.typography.titleSmall)
                     Text(
@@ -123,7 +123,7 @@ internal fun OfflineMapSettings(state: DriveState, maps: MapState, controller: O
                             progress = { saved.progress },
                             modifier = Modifier.fillMaxWidth(),
                         )
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    ActionRow() {
                         AppTextButton(
                             onClick = {
                                 focusArea = saved.area
@@ -152,7 +152,7 @@ internal fun OfflineMapSettings(state: DriveState, maps: MapState, controller: O
                 it,
                 color = Amber,
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = 8.dp),
+                modifier = Modifier,
             )
         }
     }
@@ -219,7 +219,11 @@ private fun OfflineAreaPicker(
                 Modifier.fillMaxSize().imePadding().padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(AppSpace.Group),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Text(
                         "Choose offline area",
                         modifier = Modifier.weight(1f).semantics { heading() },
@@ -227,46 +231,47 @@ private fun OfflineAreaPicker(
                     )
                     AppTextButton(onDismiss) { Text("Done") }
                 }
-                Column(
-                    Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text(
-                        "Pan and zoom to frame the streets you want to keep.",
-                        color = Muted,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    RouteMap(
-                        emptyList(),
-                        Modifier.fillMaxWidth().height(340.dp).clip(RoundedCornerShape(18.dp)),
-                        focus = location,
-                        focusArea = if (resetArea) null else initialArea,
-                        cameraKey = "offline-area",
-                        onArea = { area = it },
-                        onFit = { resetArea = true },
-                        fitLabel = "Reset view",
-                        description =
-                            "Street map for choosing an offline download. Pan or use the zoom controls to choose an area.",
-                    )
-                    if (maps.enabled) {
-                        OutlinedTextField(
-                            name,
-                            { name = it.take(60) },
-                            label = { Text("Area name (optional)") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
+                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                    val previewHeight = (maxHeight - 180.dp).coerceIn(140.dp, 300.dp)
+                    Column(
+                        Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(AppSpace.Group),
+                    ) {
+                        val candidate = area
+                        Text(
+                            if (maps.enabled && candidate?.downloadable == true)
+                                "About ${mb(candidate.estimatedBytes)} MB · ${mb(candidate.estimatedBytes + 50_000_000)} MB free needed"
+                            else if (maps.enabled) "Zoom in to choose a smaller area · 40 MB limit"
+                            else "Pan and zoom to view this saved area.",
+                            color = Muted,
+                            style = MaterialTheme.typography.bodySmall,
                         )
+                        RouteMap(
+                            emptyList(),
+                            Modifier.fillMaxWidth(),
+                            mapHeight = previewHeight,
+                            focus = location,
+                            focusArea = if (resetArea) null else initialArea,
+                            cameraKey = "offline-area",
+                            onArea = { area = it },
+                            onFit = { resetArea = true },
+                            fitLabel = "Reset view",
+                            description =
+                                "Street map for choosing an offline download. Pan or use the zoom controls to choose an area.",
+                        )
+                        if (maps.enabled) {
+                            OutlinedTextField(
+                                name,
+                                { name = it.take(60) },
+                                label = { Text("Area name (optional)") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
                     }
                 }
                 if (maps.enabled) {
                     val candidate = area
-                    Text(
-                        if (candidate?.downloadable == true)
-                            "About ${mb(candidate.estimatedBytes)} MB · ${mb(candidate.estimatedBytes + 50_000_000)} MB free needed"
-                        else "Zoom in to choose a smaller area · 40 MB limit",
-                        color = Muted,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
                     AppButton(
                         onClick = { candidate?.let { onDownload(it, name) } },
                         enabled = candidate?.downloadable == true && !maps.loading,

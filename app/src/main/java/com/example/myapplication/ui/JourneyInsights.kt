@@ -28,93 +28,103 @@ internal val Journey.displayName: String
 @Composable
 internal fun SpeedGraph(journey: Journey, unit: SpeedUnit) {
     var selected by remember(journey.id) { mutableStateOf<SpeedSample?>(null) }
-    Text("Speed over recorded time", style = MaterialTheme.typography.titleMedium)
-    if (journey.samples.isEmpty()) {
-        Text("No speed readings saved.", color = Muted, style = MaterialTheme.typography.bodyMedium)
-        return
-    }
-    val maximum =
-        max(
-            10.0,
-            ceil(journey.samples.maxOf { it.metersPerSecond } * unit.multiplier / 10.0) * 10.0,
-        )
-    val duration = max(1000L, journey.durationMillis)
-    selected?.let { reading ->
-        Text(
-            "${(reading.metersPerSecond * unit.multiplier).roundToInt()} ${unit.label} at ${graphTime(reading.recordedMillis)}",
-            color = Muted,
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-        )
-    }
-    Text(
-        "${maximum.toInt()} ${unit.label}",
-        color = Muted,
-        style = MaterialTheme.typography.labelSmall,
-    )
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        AppTextButton(onClick = { selected = journey.samples.first() }) { Text("First reading") }
-        AppTextButton(onClick = { selected = journey.samples.maxBy { it.metersPerSecond } }) {
-            Text("Peak reading")
-        }
-        AppTextButton(onClick = { selected = journey.samples.last() }) { Text("Last reading") }
-    }
-    Canvas(
-        Modifier.fillMaxWidth()
-            .height(160.dp)
-            .semantics {
-                contentDescription =
-                    "Speed graph. ${journey.samples.size} readings over ${graphTime(journey.durationMillis)} recorded time. Maximum ${ (journey.maxSpeed * unit.multiplier).roundToInt()} ${unit.label}. Manual pauses are excluded."
-            }
-            .pointerInput(journey.id, journey.samples) {
-                detectTapGestures { offset ->
-                    val time = offset.x / size.width * duration
-                    selected = journey.samples.minByOrNull { abs(it.recordedMillis - time) }
-                }
-            }
-    ) {
-        for (row in 0..3) drawLine(
-            Border.copy(alpha = 0.6f),
-            Offset(0f, size.height * row / 3),
-            Offset(size.width, size.height * row / 3),
-            1.dp.toPx(),
-        )
-        val path = Path()
-        var segment = -1
-        journey.samples.forEach { sample ->
-            val x = (sample.recordedMillis.toDouble() / duration * size.width).toFloat()
-            val y =
-                (size.height * (1.0 - sample.metersPerSecond * unit.multiplier / maximum)).toFloat()
-            if (sample.segment != segment) path.moveTo(x, y) else path.lineTo(x, y)
-            segment = sample.segment
-        }
-        drawPath(path, Pink, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
-        selected?.let {
-            val x = (it.recordedMillis.toDouble() / duration * size.width).toFloat()
-            drawLine(
-                Muted.copy(alpha = 0.6f),
-                Offset(x, 0f),
-                Offset(x, size.height),
-                1.dp.toPx(),
-                pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f)),
+    Column(verticalArrangement = Arrangement.spacedBy(AppSpace.Group)) {
+        Text("Speed over recorded time", style = MaterialTheme.typography.titleMedium)
+        if (journey.samples.isEmpty()) {
+            Text(
+                "No speed readings saved.",
+                color = Muted,
+                style = MaterialTheme.typography.bodyMedium,
             )
-            drawCircle(
-                Pink,
-                4.dp.toPx(),
-                Offset(
-                    (it.recordedMillis.toDouble() / duration * size.width).toFloat(),
-                    (size.height * (1.0 - it.metersPerSecond * unit.multiplier / maximum)).toFloat(),
-                ),
+            return@Column
+        }
+        val maximum =
+            max(
+                10.0,
+                ceil(journey.samples.maxOf { it.metersPerSecond } * unit.multiplier / 10.0) * 10.0,
+            )
+        val duration = max(1000L, journey.durationMillis)
+        selected?.let { reading ->
+            Text(
+                "${(reading.metersPerSecond * unit.multiplier).roundToInt()} ${unit.label} at ${graphTime(reading.recordedMillis)}",
+                color = Muted,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             )
         }
-    }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text("0:00", color = Muted, style = MaterialTheme.typography.labelSmall)
         Text(
-            graphTime(journey.durationMillis),
+            "${maximum.toInt()} ${unit.label}",
             color = Muted,
             style = MaterialTheme.typography.labelSmall,
         )
+        ActionRow {
+            AppTextButton(onClick = { selected = journey.samples.first() }) {
+                Text("First reading")
+            }
+            AppTextButton(onClick = { selected = journey.samples.maxBy { it.metersPerSecond } }) {
+                Text("Peak reading")
+            }
+            AppTextButton(onClick = { selected = journey.samples.last() }) { Text("Last reading") }
+        }
+        Canvas(
+            Modifier.fillMaxWidth()
+                .height(160.dp)
+                .semantics {
+                    contentDescription =
+                        "Speed graph. ${journey.samples.size} readings over ${graphTime(journey.durationMillis)} recorded time. Maximum ${ (journey.maxSpeed * unit.multiplier).roundToInt()} ${unit.label}. Manual pauses are excluded."
+                }
+                .pointerInput(journey.id, journey.samples) {
+                    detectTapGestures { offset ->
+                        val time = offset.x / size.width * duration
+                        selected = journey.samples.minByOrNull { abs(it.recordedMillis - time) }
+                    }
+                }
+        ) {
+            for (row in 0..3) drawLine(
+                Border.copy(alpha = 0.6f),
+                Offset(0f, size.height * row / 3),
+                Offset(size.width, size.height * row / 3),
+                1.dp.toPx(),
+            )
+            val path = Path()
+            var segment = -1
+            journey.samples.forEach { sample ->
+                val x = (sample.recordedMillis.toDouble() / duration * size.width).toFloat()
+                val y =
+                    (size.height * (1.0 - sample.metersPerSecond * unit.multiplier / maximum))
+                        .toFloat()
+                if (sample.segment != segment) path.moveTo(x, y) else path.lineTo(x, y)
+                segment = sample.segment
+            }
+            drawPath(path, Pink, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
+            selected?.let {
+                val x = (it.recordedMillis.toDouble() / duration * size.width).toFloat()
+                drawLine(
+                    Muted.copy(alpha = 0.6f),
+                    Offset(x, 0f),
+                    Offset(x, size.height),
+                    1.dp.toPx(),
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f)),
+                )
+                drawCircle(
+                    Pink,
+                    4.dp.toPx(),
+                    Offset(
+                        (it.recordedMillis.toDouble() / duration * size.width).toFloat(),
+                        (size.height * (1.0 - it.metersPerSecond * unit.multiplier / maximum))
+                            .toFloat(),
+                    ),
+                )
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("0:00", color = Muted, style = MaterialTheme.typography.labelSmall)
+            Text(
+                graphTime(journey.durationMillis),
+                color = Muted,
+                style = MaterialTheme.typography.labelSmall,
+            )
+        }
     }
 }
 

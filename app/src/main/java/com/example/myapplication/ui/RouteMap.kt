@@ -3,12 +3,15 @@ package com.example.myapplication.ui
 import android.os.Bundle
 import android.view.MotionEvent
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
@@ -30,6 +33,7 @@ import org.maplibre.geojson.*
 internal fun RouteMap(
     points: List<RoutePoint>,
     modifier: Modifier,
+    mapHeight: Dp? = null,
     focus: LatLng? = null,
     focusArea: MapArea? = null,
     cameraKey: String = "",
@@ -222,70 +226,76 @@ internal fun RouteMap(
             else -> ready.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(30.0, 0.0), 2.0))
         }
     }
-    Column(modifier) {
-        Box(Modifier.fillMaxWidth().weight(1f)) {
-            AndroidView(
-                factory = {
-                    view.contentDescription = description
-                    view.setOnTouchListener { v, event ->
-                        if (event.actionMasked == MotionEvent.ACTION_DOWN)
-                            v.parent.requestDisallowInterceptTouchEvent(true)
-                        if (
-                            event.actionMasked == MotionEvent.ACTION_UP ||
-                                event.actionMasked == MotionEvent.ACTION_CANCEL
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val viewportHeight = mapHeight ?: (maxWidth * 0.8f).coerceIn(180.dp, 320.dp)
+        Column(
+            Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(AppSpace.Related),
+        ) {
+            Box(Modifier.fillMaxWidth().height(viewportHeight).clip(RoundedCornerShape(18.dp))) {
+                AndroidView(
+                    factory = {
+                        view.contentDescription = description
+                        view.setOnTouchListener { v, event ->
+                            if (event.actionMasked == MotionEvent.ACTION_DOWN)
+                                v.parent.requestDisallowInterceptTouchEvent(true)
+                            if (
+                                event.actionMasked == MotionEvent.ACTION_UP ||
+                                    event.actionMasked == MotionEvent.ACTION_CANCEL
+                            )
+                                v.parent.requestDisallowInterceptTouchEvent(false)
+                            false
+                        }
+                        view
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
+                if (error != null && points.isNotEmpty()) {
+                    Column(Modifier.fillMaxSize()) {
+                        RouteTrace(points, Modifier.fillMaxWidth().weight(1f))
+                        Text(
+                            "Route outline · streets unavailable",
+                            color = Muted,
+                            style = MaterialTheme.typography.labelSmall,
                         )
-                            v.parent.requestDisallowInterceptTouchEvent(false)
-                        false
                     }
-                    view
-                },
-                modifier = Modifier.fillMaxSize(),
-            )
-            if (error != null && points.isNotEmpty()) {
-                Column(Modifier.fillMaxSize()) {
-                    RouteTrace(points, Modifier.fillMaxWidth().weight(1f))
-                    Text(
-                        "Route outline · streets unavailable",
-                        color = Muted,
-                        style = MaterialTheme.typography.labelSmall,
-                    )
                 }
             }
+            if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+            error?.let { Text(it, color = Amber, style = MaterialTheme.typography.bodySmall) }
+            Row(
+                Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                AppOutlinedButton(
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp),
+                    onClick = { map?.animateCamera(CameraUpdateFactory.zoomIn()) },
+                    enabled = map != null,
+                ) {
+                    Text("Zoom in", textAlign = TextAlign.Center)
+                }
+                AppOutlinedButton(
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp),
+                    onClick = { map?.animateCamera(CameraUpdateFactory.zoomOut()) },
+                    enabled = map != null,
+                ) {
+                    Text("Zoom out", textAlign = TextAlign.Center)
+                }
+                AppOutlinedButton(
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp),
+                    onClick = {
+                        onFit()
+                        fit++
+                    },
+                    enabled = map != null,
+                ) {
+                    Text(fitLabel, textAlign = TextAlign.Center)
+                }
+            }
+            if (error != null) AppTextButton(onClick = { reload++ }) { Text("Retry map") }
         }
-        if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
-        error?.let { Text(it, color = Amber, style = MaterialTheme.typography.bodySmall) }
-        Row(
-            Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(top = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            AppOutlinedButton(
-                modifier = Modifier.weight(1f).fillMaxHeight(),
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp),
-                onClick = { map?.animateCamera(CameraUpdateFactory.zoomIn()) },
-                enabled = map != null,
-            ) {
-                Text("Zoom in", textAlign = TextAlign.Center)
-            }
-            AppOutlinedButton(
-                modifier = Modifier.weight(1f).fillMaxHeight(),
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp),
-                onClick = { map?.animateCamera(CameraUpdateFactory.zoomOut()) },
-                enabled = map != null,
-            ) {
-                Text("Zoom out", textAlign = TextAlign.Center)
-            }
-            AppOutlinedButton(
-                modifier = Modifier.weight(1f).fillMaxHeight(),
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp),
-                onClick = {
-                    onFit()
-                    fit++
-                },
-                enabled = map != null,
-            ) {
-                Text(fitLabel, textAlign = TextAlign.Center)
-            }
-        }
-        if (error != null) AppTextButton(onClick = { reload++ }) { Text("Retry map") }
     }
 }

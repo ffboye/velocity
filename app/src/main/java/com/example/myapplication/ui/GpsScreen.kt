@@ -36,7 +36,7 @@ internal fun GpsScreen(
     LazyColumn(
         modifier.padding(horizontal = 20.dp).testTag("gps-content"),
         contentPadding = PaddingValues(vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(AppSpace.Section),
     ) {
         item { Header("GPS connectivity") }
         item {
@@ -68,10 +68,7 @@ internal fun GpsScreen(
                     color =
                         if (state.locationQuality == LocationQuality.WEAK) Amber
                         else if (state.hasSignal) Green else MaterialTheme.colorScheme.onSurface,
-                    modifier =
-                        Modifier.padding(top = 10.dp).semantics {
-                            liveRegion = LiveRegionMode.Polite
-                        },
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                 )
                 if (!state.hasSignal || state.locationQuality == LocationQuality.WEAK)
                     Text(
@@ -87,10 +84,9 @@ internal fun GpsScreen(
                         },
                         color = Muted,
                         fontSize = 14.sp,
-                        modifier = Modifier.padding(top = 10.dp),
                     )
-                HorizontalDivider(Modifier.padding(vertical = 18.dp), color = Border)
-                Row(Modifier.fillMaxWidth()) {
+                HorizontalDivider(color = Border)
+                StatsRow {
                     Stat(
                         "ACCURACY",
                         if (state.hasSignal) "±${state.fix!!.accuracy.roundToInt()}"
@@ -106,10 +102,7 @@ internal fun GpsScreen(
                         Modifier.weight(1f),
                     )
                 }
-                FlowRow(
-                    Modifier.padding(top = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
+                ActionRow {
                     when {
                         !state.trackingEnabled ->
                             AppButton(onClick = { onTracking(true) }) { Text("Turn tracking on") }
@@ -130,7 +123,7 @@ internal fun GpsScreen(
         item {
             GlassCard {
                 Eyebrow("SATELLITE RECEIVER")
-                Row(Modifier.fillMaxWidth().padding(top = 18.dp)) {
+                StatsRow {
                     Stat(
                         "IN VIEW",
                         if (state.gnssFresh) satellites.size.toString() else "—",
@@ -164,13 +157,16 @@ internal fun GpsScreen(
                     },
                     fontSize = 14.sp,
                     color = Muted,
-                    modifier = Modifier.padding(top = 18.dp),
                 )
                 if (satellites.isNotEmpty()) {
-                    SkyView(satellites, Modifier.fillMaxWidth().height(240.dp).padding(top = 18.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                    SkyView(satellites, Modifier.fillMaxWidth().height(240.dp))
+                    FlowRow(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement =
+                            Arrangement.spacedBy(AppSpace.Group, Alignment.CenterHorizontally),
+                        verticalArrangement = Arrangement.spacedBy(AppSpace.Related),
+                    ) {
                         Text("● Used in fix", color = Green, fontSize = 14.sp)
-                        Spacer(Modifier.width(18.dp))
                         Text("○ In view", color = Muted, fontSize = 14.sp)
                     }
                 }
@@ -233,8 +229,9 @@ internal fun GpsScreen(
 @Composable
 private fun DetailRow(label: String, value: String) {
     FlowRow(
-        Modifier.fillMaxWidth().padding(top = 12.dp),
+        Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(label, color = Muted, fontSize = 14.sp)
         Text(value, fontSize = 14.sp, fontWeight = FontWeight.Medium)
@@ -249,9 +246,16 @@ private fun SatelliteSignal(satellite: Satellite) {
         contentColor = MaterialTheme.colorScheme.onSurface,
         border = BorderStroke(1.dp, Border),
     ) {
-        Column(Modifier.fillMaxWidth().padding(16.dp).semantics(mergeDescendants = true) {}) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
+        Column(
+            Modifier.fillMaxWidth().padding(16.dp).semantics(mergeDescendants = true) {},
+            verticalArrangement = Arrangement.spacedBy(AppSpace.Group),
+        ) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(AppSpace.Group),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(satellite.label, fontWeight = FontWeight.Medium, fontSize = 14.sp)
                     Text(
                         if (satellite.usedInFix) "Used in fix" else "In view",
@@ -267,7 +271,7 @@ private fun SatelliteSignal(satellite: Satellite) {
             }
             LinearProgressIndicator(
                 progress = { (satellite.cn0 / 60f).coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth().padding(top = 10.dp).height(6.dp),
+                modifier = Modifier.fillMaxWidth().height(6.dp),
                 color = if (satellite.usedInFix) Green else Pink,
                 trackColor = Border,
             )
