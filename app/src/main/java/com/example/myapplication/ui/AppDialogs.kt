@@ -1,7 +1,9 @@
 package com.example.myapplication.ui
 
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -30,6 +32,7 @@ internal fun AppAlertDialog(
     val density = LocalDensity.current
     AlertDialog(
         onDismissRequest = onDismissRequest,
+        modifier = Modifier.imePadding(),
         title = { CompositionLocalProvider(LocalDensity provides density, content = title) },
         text = { CompositionLocalProvider(LocalDensity provides density, content = text) },
         confirmButton = {

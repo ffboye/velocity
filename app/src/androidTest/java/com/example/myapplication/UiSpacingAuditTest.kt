@@ -288,6 +288,8 @@ class UiSpacingAuditTest {
                 .performScrollTo()
                 .performClick()
                 .performTextInput(" Clear, readable notes.")
+            compose.onNodeWithText("Save changes").assertIsDisplayed()
+            compose.onNodeWithText("Cancel").assertIsDisplayed()
             capture("editor-keyboard")
             instrumentation.uiAutomation.performGlobalAction(
                 android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK
