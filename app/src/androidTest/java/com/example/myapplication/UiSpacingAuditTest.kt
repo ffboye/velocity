@@ -65,10 +65,19 @@ class UiSpacingAuditTest {
                     // Compose rounds the measured size to integer pixels. Subpixel overflow is
                     // harmless; a lost line or overflow beyond that rounding tolerance is not.
                     val paragraph = result.multiParagraph
+                    // Paragraph width can include unused wrapping space. Compare actual glyph
+                    // spans, otherwise an ordinary short title looks like overflow.
+                    val widestLine =
+                        (0 until result.lineCount).maxOfOrNull {
+                            result.getLineRight(it) - result.getLineLeft(it)
+                        } ?: 0f
                     val clipped =
                         paragraph.didExceedMaxLines ||
-                            paragraph.width > result.size.width + 1f ||
+                            widestLine > result.size.width + 1f ||
                             paragraph.height > result.size.height + 1f
+                    if (name.startsWith("large-") && result.layoutInput.density.fontScale < 1.7f)
+                        layoutIssues +=
+                            "$name: reading scale missing from '${result.layoutInput.text}'"
                     if (clipped && result.layoutInput.overflow != TextOverflow.Ellipsis) {
                         layoutIssues +=
                             "$name: clipped text '${result.layoutInput.text}' " +

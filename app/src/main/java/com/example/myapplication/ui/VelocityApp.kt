@@ -28,7 +28,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.myapplication.maps.*
 import com.example.myapplication.tracking.*
@@ -109,11 +108,13 @@ fun VelocityApp(
         topBar = {
             if (state.saveFailed || !state.storageReady)
                 Surface(color = Panel, contentColor = Amber) {
-                    Row(
+                    FlowRow(
                         Modifier.statusBarsPadding()
                             .fillMaxWidth()
                             .padding(horizontal = AppSpace.Page, vertical = AppSpace.Related),
-                        verticalAlignment = Alignment.CenterVertically,
+                        maxItemsInEachRow = if (LocalDensity.current.fontScale > 1.3f) 1 else 2,
+                        horizontalArrangement = Arrangement.spacedBy(AppSpace.Group, Alignment.End),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         Text(
                             if (state.saveFailed)
@@ -759,7 +760,7 @@ private fun JourneyDetails(
     var delete by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
     var averageDetails by remember { mutableStateOf(false) }
-    Dialog(
+    AppDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
@@ -885,7 +886,7 @@ private fun JourneyDetails(
         }
     }
     if (averageDetails)
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { averageDetails = false },
             title = { Text("Average speed") },
             text = {
@@ -908,7 +909,7 @@ private fun JourneyDetails(
             },
         )
     if (delete)
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { delete = false },
             title = { Text("Delete this journey?") },
             text = {

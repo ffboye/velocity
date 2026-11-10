@@ -20,7 +20,7 @@ internal fun JourneyEditor(
 ) {
     var name by rememberSaveable { mutableStateOf(initialName) }
     var notes by rememberSaveable { mutableStateOf(initialNotes) }
-    AlertDialog(
+    AppAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {

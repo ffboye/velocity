@@ -11,9 +11,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import com.example.myapplication.BuildConfig
 import com.example.myapplication.ui.AppButton
+import com.example.myapplication.ui.AppDialog
 import com.example.myapplication.ui.AppTextButton
 import com.example.myapplication.ui.PreferenceRow
 import java.text.DateFormat
@@ -108,7 +108,7 @@ fun UpdateDialog(
     blockingMessage: String? = null,
 ) {
     if (!state.dialog) return
-    Dialog(onDismissRequest = onLater) {
+    AppDialog(onDismissRequest = onLater) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(28.dp),

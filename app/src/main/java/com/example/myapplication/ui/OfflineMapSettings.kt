@@ -14,7 +14,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.myapplication.maps.*
 import com.example.myapplication.tracking.*
@@ -163,7 +162,7 @@ internal fun OfflineMapSettings(state: DriveState, maps: MapState, controller: O
         }
     }
     deleteId?.let { id ->
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { deleteId = null },
             title = { Text("Delete downloaded map?") },
             text = {
@@ -206,7 +205,7 @@ private fun OfflineAreaPicker(
                 ?.points
                 ?.lastOrNull()
                 ?.let { LatLng(it.latitude, it.longitude) }
-    Dialog(
+    AppDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {

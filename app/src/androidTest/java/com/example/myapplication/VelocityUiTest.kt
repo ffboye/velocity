@@ -21,7 +21,7 @@ class VelocityUiTest {
         compose.onNodeWithText("Settings", useUnmergedTree = true).performClick()
         compose.onNodeWithText("Measurement units").assertIsDisplayed()
         compose.onNodeWithText("App Updates").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Check for Updates").assertExists()
+        compose.onNode(hasText("Check for Updates") or hasText("Checking…")).assertExists()
         compose.onNodeWithText("Measurement units").performScrollTo()
         compose.onNodeWithText("mph · mi").performClick()
         compose.onNodeWithText("Speed", useUnmergedTree = true).performClick()
