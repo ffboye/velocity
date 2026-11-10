@@ -25,13 +25,15 @@ internal fun JourneyEditor(
         title = { Text(title) },
         text = {
             Column(
-                Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                Modifier.heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(top = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 OutlinedTextField(
                     name,
                     { name = it.take(100) },
-                    label = { Text("Journey name (optional)") },
+                    label = { Text("Name (optional)") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     supportingText = { Text("${name.length}/100") },

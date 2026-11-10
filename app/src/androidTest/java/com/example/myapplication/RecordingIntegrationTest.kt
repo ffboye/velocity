@@ -132,7 +132,7 @@ class RecordingIntegrationTest {
             compose.waitUntil(10000) { repository.state.value.recording == Recording.RECORDING }
             val previousCount = repository.state.value.journeys.size
             compose.onNodeWithText("Finish & save", useUnmergedTree = true).performClick()
-            compose.onNodeWithText("Journey name (optional)").performTextInput("Morning loop")
+            compose.onNodeWithText("Name (optional)").performTextInput("Morning loop")
             compose.onNodeWithText("Notes (optional)").performTextInput("Along the river")
             compose.onNodeWithText("Save journey", useUnmergedTree = true).performClick()
             compose.waitUntil(10000) { repository.state.value.journeys.size > previousCount }
@@ -165,9 +165,7 @@ class RecordingIntegrationTest {
             compose.onNodeWithText("Journeys", useUnmergedTree = true).performClick()
             compose.onNodeWithText("Morning loop").performScrollTo().performClick()
             compose.onNodeWithText("Edit name & notes").performClick()
-            compose
-                .onNodeWithText("Journey name (optional)")
-                .performTextReplacement("River journey")
+            compose.onNodeWithText("Name (optional)").performTextReplacement("River journey")
             compose.onNodeWithText("Save changes").performClick()
             compose.waitUntil(10000) {
                 repository.state.value.journeys.first { it.id == saved.id }.name == "River journey"
