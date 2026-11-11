@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import com.example.myapplication.tracking.*
@@ -27,6 +28,9 @@ internal val Journey.displayName: String
 
 @Composable
 internal fun SpeedGraph(journey: Journey, unit: SpeedUnit) {
+    val graphBorder = Border
+    val graphAccent = Pink
+    val graphMuted = Muted
     var selected by remember(journey.id) { mutableStateOf<SpeedSample?>(null) }
     Column(verticalArrangement = Arrangement.spacedBy(AppSpace.Group)) {
         Text("Speed over recorded time", style = MaterialTheme.typography.titleMedium)
@@ -69,6 +73,7 @@ internal fun SpeedGraph(journey: Journey, unit: SpeedUnit) {
         Canvas(
             Modifier.fillMaxWidth()
                 .height(160.dp)
+                .testTag("speed-graph")
                 .semantics {
                     contentDescription =
                         "Speed graph. ${journey.samples.size} readings over ${graphTime(journey.durationMillis)} recorded time. Maximum ${ (journey.maxSpeed * unit.multiplier).roundToInt()} ${unit.label}. Manual pauses are excluded."
@@ -81,7 +86,7 @@ internal fun SpeedGraph(journey: Journey, unit: SpeedUnit) {
                 }
         ) {
             for (row in 0..3) drawLine(
-                Border.copy(alpha = 0.6f),
+                graphBorder.copy(alpha = 0.6f),
                 Offset(0f, size.height * row / 3),
                 Offset(size.width, size.height * row / 3),
                 1.dp.toPx(),
@@ -96,18 +101,18 @@ internal fun SpeedGraph(journey: Journey, unit: SpeedUnit) {
                 if (sample.segment != segment) path.moveTo(x, y) else path.lineTo(x, y)
                 segment = sample.segment
             }
-            drawPath(path, Pink, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
+            drawPath(path, graphAccent, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
             selected?.let {
                 val x = (it.recordedMillis.toDouble() / duration * size.width).toFloat()
                 drawLine(
-                    Muted.copy(alpha = 0.6f),
+                    graphMuted.copy(alpha = 0.6f),
                     Offset(x, 0f),
                     Offset(x, size.height),
                     1.dp.toPx(),
                     pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f)),
                 )
                 drawCircle(
-                    Pink,
+                    graphAccent,
                     4.dp.toPx(),
                     Offset(
                         (it.recordedMillis.toDouble() / duration * size.width).toFloat(),

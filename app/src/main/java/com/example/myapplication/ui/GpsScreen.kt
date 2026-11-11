@@ -289,6 +289,10 @@ private fun SatelliteSignal(satellite: Satellite) {
 
 @Composable
 private fun SkyView(satellites: List<Satellite>, modifier: Modifier) {
+    val skyBorder = Border
+    val skyGreen = Green
+    val skyAccent = Pink
+    val skyMuted = Muted
     Box(modifier, contentAlignment = Alignment.Center) {
         Canvas(
             Modifier.fillMaxHeight().aspectRatio(1f).padding(20.dp).semantics {
@@ -298,12 +302,12 @@ private fun SkyView(satellites: List<Satellite>, modifier: Modifier) {
         ) {
             val radius = size.minDimension / 2
             for (fraction in listOf(1f, 2f / 3f, 1f / 3f)) drawCircle(
-                Border,
+                skyBorder,
                 radius * fraction,
                 style = Stroke(1.dp.toPx()),
             )
-            drawLine(Border, Offset(center.x, 0f), Offset(center.x, size.height), 1.dp.toPx())
-            drawLine(Border, Offset(0f, center.y), Offset(size.width, center.y), 1.dp.toPx())
+            drawLine(skyBorder, Offset(center.x, 0f), Offset(center.x, size.height), 1.dp.toPx())
+            drawLine(skyBorder, Offset(0f, center.y), Offset(size.width, center.y), 1.dp.toPx())
             satellites
                 .filter { it.elevation >= 0f }
                 .forEach {
@@ -316,12 +320,13 @@ private fun SkyView(satellites: List<Satellite>, modifier: Modifier) {
                                 (-cos(angle) * distance).toFloat(),
                             )
                     drawCircle(
-                        if (it.usedInFix) Green.copy(alpha = .14f) else Pink.copy(alpha = .12f),
+                        if (it.usedInFix) skyGreen.copy(alpha = .14f)
+                        else skyAccent.copy(alpha = .12f),
                         9.dp.toPx(),
                         point,
                     )
                     drawCircle(
-                        if (it.usedInFix) Green else Muted,
+                        if (it.usedInFix) skyGreen else skyMuted,
                         4.dp.toPx(),
                         point,
                         style =

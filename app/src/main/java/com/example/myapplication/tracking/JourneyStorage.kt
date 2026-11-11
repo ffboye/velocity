@@ -22,6 +22,7 @@ object JourneyCodec {
             put("interrupted", journey.interrupted)
             put("name", journey.name)
             put("notes", journey.notes)
+            put("tags", JSONArray(journey.tags))
             put(
                 "samples",
                 JSONArray().apply {
@@ -75,6 +76,12 @@ object JourneyCodec {
                         SpeedSample(s.getLong(0), s.getDouble(1), s.getInt(2))
                     }
                 } ?: emptyList(),
+                if (json.has("tags"))
+                    json.getJSONArray("tags").let { tags ->
+                        require(tags.length() <= 5) { "Too many journey tags" }
+                        (0 until tags.length()).map { tags.getString(it) }
+                    }
+                else emptyList(),
             )
             .also(JourneyValidation::validate)
     }
@@ -110,6 +117,8 @@ object JourneyCodec {
                 "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<gpx version=\"1.1\" creator=\"Velocity\" xmlns=\"http://www.topografix.com/GPX/1/1\"><trk><name>${xml(journey.name.ifBlank { "Velocity journey" })}</name><desc>${xml(journey.notes)}</desc>"
             )
             var segment: Int? = null
+            if (journey.tags.isNotEmpty())
+                append("<type>${xml(journey.tags.joinToString(", "))}</type>")
             journey.points.forEach { p ->
                 if (segment != p.segment) {
                     if (segment != null) append("</trkseg>")

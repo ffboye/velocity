@@ -50,6 +50,7 @@ data class Journey(
     val name: String = "",
     val notes: String = "",
     val samples: List<SpeedSample> = emptyList(),
+    val tags: List<String> = emptyList(),
 ) {
     val averageSpeed: Double
         get() = if (durationMillis > 0) distanceMeters / (durationMillis / 1000.0) else 0.0
@@ -72,6 +73,10 @@ data class DriveState(
     val trackingEnabled: Boolean = true,
     val showGpsTab: Boolean = true,
     val easyReading: Boolean = false,
+    val daylight: Boolean = false,
+    val tapHaptics: Boolean = true,
+    val tripHaptics: Boolean = true,
+    val distanceChimes: Boolean = false,
     val speed: Double = 0.0,
     val recording: Recording = Recording.IDLE,
     val durationMillis: Long = 0,

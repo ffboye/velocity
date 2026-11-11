@@ -48,7 +48,7 @@ class ReadabilityIntegrationTest {
             compose.onNodeWithText("Start journey").assertHeightIsAtLeast(64.dp)
             screenshot("standard")
             compose.onNodeWithText("Settings", useUnmergedTree = true).performClick()
-            compose.onNodeWithContentDescription("Easy reading").performScrollTo().performClick()
+            compose.onNodeWithContentDescription("Large text mode").performScrollTo().performClick()
             compose.waitUntil(10000) { repository.state.value.easyReading }
             assertTrue(
                 context
@@ -56,10 +56,10 @@ class ReadabilityIntegrationTest {
                     .getBoolean("easy_reading", false)
             )
             compose.activityRule.scenario.recreate()
-            compose.onNodeWithContentDescription("Easy reading").assertIsOn()
+            compose.onNodeWithContentDescription("Large text mode").assertIsOn()
             shell("settings put system font_scale 1.5")
             compose.waitUntil(15000) { compose.activity.resources.configuration.fontScale >= 1.49f }
-            compose.onNodeWithContentDescription("Easy reading").assertIsOn()
+            compose.onNodeWithContentDescription("Large text mode").assertIsOn()
             compose.onNodeWithText("Speed", useUnmergedTree = true).performClick()
             compose.waitUntil(15000) {
                 compose.onNodeWithText("Start journey").isDisplayed() &&

@@ -41,6 +41,8 @@ class TrackingService : Service(), LocationListener {
     private var bound = false
     private var foreground = false
     private var seconds = 0
+    private val milestones = DistanceMilestones()
+    private val feedback by lazy { TripFeedback(this) }
     private val locationChanges =
         object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
@@ -54,6 +56,19 @@ class TrackingService : Service(), LocationListener {
 
     override fun onCreate() {
         super.onCreate()
+        scope.launch {
+            repository.state.collect { state ->
+                if (
+                    milestones.observe(
+                        state.distanceMeters,
+                        state.unit,
+                        state.recording,
+                        state.distanceChimes,
+                    )
+                )
+                    feedback.distanceChime()
+            }
+        }
         ContextCompat.registerReceiver(
             this,
             locationChanges,
@@ -126,7 +141,7 @@ class TrackingService : Service(), LocationListener {
                             "Enable precise location and GPS before starting a journey."
                         )
                         endForeground()
-                    }
+                    } else if (repository.state.value.tripHaptics) feedback.tripHaptic()
                 } catch (_: SecurityException) {
                     repository.message(
                         "Location access is unavailable. Open Settings and allow precise location."
@@ -140,14 +155,22 @@ class TrackingService : Service(), LocationListener {
                 }
             }
             PAUSE -> {
+                val before = repository.state.value.recording
                 repository.pauseResume()
+                if (
+                    repository.state.value.tripHaptics && repository.state.value.recording != before
+                )
+                    feedback.tripHaptic()
                 refreshNotification()
             }
             FINISH -> {
+                val active = repository.state.value.recording != Recording.IDLE
                 repository.finish(
                     name = intent.getStringExtra("name").orEmpty(),
                     notes = intent.getStringExtra("notes").orEmpty(),
+                    tags = intent.getStringArrayListExtra("tags").orEmpty(),
                 )
+                if (active && repository.state.value.tripHaptics) feedback.tripHaptic()
                 endForeground()
             }
             RETRY -> {
@@ -417,6 +440,7 @@ class TrackingService : Service(), LocationListener {
         disconnectGps()
         unregisterReceiver(locationChanges)
         scope.cancel()
+        feedback.release()
         super.onDestroy()
     }
 

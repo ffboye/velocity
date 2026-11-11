@@ -17,7 +17,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.example.myapplication.maps.*
 import com.example.myapplication.tracking.*
-import com.example.myapplication.ui.theme.VelocityColors
 import java.util.Locale
 import org.maplibre.android.geometry.LatLng
 
@@ -211,8 +210,8 @@ private fun OfflineAreaPicker(
     ) {
         Surface(
             Modifier.fillMaxSize().systemBarsPadding(),
-            color = VelocityColors.Background,
-            contentColor = VelocityColors.Text,
+            color = MaterialTheme.colorScheme.background,
+            contentColor = MaterialTheme.colorScheme.onSurface,
         ) {
             Column(
                 Modifier.fillMaxSize().imePadding().padding(horizontal = 20.dp, vertical = 12.dp),

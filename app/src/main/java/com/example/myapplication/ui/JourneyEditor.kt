@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.myapplication.tracking.JourneyTags
 
 @Composable
 internal fun JourneyEditor(
@@ -17,9 +18,12 @@ internal fun JourneyEditor(
     action: String,
     onDismiss: () -> Unit,
     onSave: (String, String) -> Unit,
+    initialTags: List<String> = emptyList(),
+    onSaveWithTags: ((String, String, List<String>) -> Unit)? = null,
 ) {
     var name by rememberSaveable { mutableStateOf(initialName) }
     var notes by rememberSaveable { mutableStateOf(initialNotes) }
+    var tags by rememberSaveable { mutableStateOf(ArrayList(initialTags)) }
     AppAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -47,9 +51,35 @@ internal fun JourneyEditor(
                     modifier = Modifier.fillMaxWidth(),
                     supportingText = { Text("${notes.length}/2000") },
                 )
+                Text("Tags", style = MaterialTheme.typography.titleSmall)
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    (JourneyTags.suggestions + initialTags).distinct().forEach { tag ->
+                        FilterChip(
+                            selected = tag in tags,
+                            onClick = {
+                                tags =
+                                    ArrayList(if (tag in tags) tags - tag else (tags + tag).take(5))
+                            },
+                            label = { Text(tag) },
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        )
+                    }
+                }
             }
         },
-        confirmButton = { AppTextButton(onClick = { onSave(name, notes) }) { Text(action) } },
+        confirmButton = {
+            AppTextButton(
+                onClick = {
+                    if (onSaveWithTags != null) onSaveWithTags(name, notes, tags)
+                    else onSave(name, notes)
+                }
+            ) {
+                Text(action)
+            }
+        },
         dismissButton = { AppTextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }

@@ -11,6 +11,9 @@ object JourneyValidation {
         require(trip.maxSpeed.isFinite() && trip.maxSpeed in 0.0..100.0) { "Invalid maximum speed" }
         require(trip.points.size <= 6000) { "Too many route points" }
         require(trip.name.length <= 100 && trip.notes.length <= 2000) { "Journey text is too long" }
+        require(trip.tags.size <= 5 && trip.tags == JourneyTags.clean(trip.tags)) {
+            "Invalid journey tags"
+        }
         require(trip.samples.size <= 12000) { "Too many speed samples" }
         var previousTime = -1L
         trip.samples.forEach { sample ->

@@ -165,12 +165,27 @@ class MainActivity : ComponentActivity() {
             val mapState by maps.state.collectAsState()
             LaunchedEffect(Unit) { updater.startup() }
             var page by rememberSaveable { mutableIntStateOf(0) }
-            SideEffect {
+            LaunchedEffect(state.daylight) {
+                val bars =
+                    if (state.daylight)
+                        SystemBarStyle.light(
+                            android.graphics.Color.TRANSPARENT,
+                            android.graphics.Color.TRANSPARENT,
+                        )
+                    else SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+                enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
+            }
+            LaunchedEffect(state.keepAwake, page) {
                 if (state.keepAwake && page == 0)
                     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
-            MyApplicationTheme(easyReading = state.easyReading) {
+            MyApplicationTheme(
+                easyReading = state.easyReading,
+                daylight = state.daylight,
+                tapHaptics = state.tapHaptics,
+                tripHaptics = state.tripHaptics,
+            ) {
                 VelocityApp(
                     state,
                     page,
@@ -197,7 +212,19 @@ class MainActivity : ComponentActivity() {
                                 else TrackingService.TRACKING_OFF
                             )
                     },
-                    onEditJourney = repository::editJourney,
+                    onEditJourney = { id, name, notes -> repository.editJourney(id, name, notes) },
+                    onEditJourneyTags = { id, name, notes, tags ->
+                        repository.editJourney(id, name, notes, tags)
+                    },
+                    onFinishTagged = { name, notes, tags ->
+                        startService(
+                            Intent(this, TrackingService::class.java)
+                                .setAction(TrackingService.FINISH)
+                                .putExtra("name", name)
+                                .putExtra("notes", notes)
+                                .putStringArrayListExtra("tags", ArrayList(tags))
+                        )
+                    },
                     mapState = mapState,
                     mapController = maps,
                     onGpsSettings = {
@@ -215,6 +242,10 @@ class MainActivity : ComponentActivity() {
                     onAwake = repository::keepAwake,
                     onGpsTabVisibility = repository::showGpsTab,
                     onEasyReading = repository::easyReading,
+                    onDaylight = repository::daylight,
+                    onTapHaptics = repository::tapHaptics,
+                    onTripHaptics = repository::tripHaptics,
+                    onDistanceChimes = repository::distanceChimes,
                     onLimit = repository::limit,
                     onDelete = repository::delete,
                     onDismissMessage = { repository.message(null) },

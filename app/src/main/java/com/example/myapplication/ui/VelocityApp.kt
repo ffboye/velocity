@@ -25,7 +25,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
@@ -37,12 +36,24 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.*
 
-internal val Pink = VelocityColors.Accent
-internal val Muted = VelocityColors.Muted
-internal val Green = VelocityColors.Positive
-internal val Amber = VelocityColors.Warning
-internal val Panel = VelocityColors.Surface
-internal val Border = VelocityColors.Outline
+internal val Pink: Color
+    @Composable get() = MaterialTheme.colorScheme.primary
+internal val Muted: Color
+    @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
+internal val Green: Color
+    @Composable
+    get() =
+        if (com.example.myapplication.ui.theme.LocalDaylight.current) Color(0xFF006539)
+        else VelocityColors.Positive
+internal val Amber: Color
+    @Composable
+    get() =
+        if (com.example.myapplication.ui.theme.LocalDaylight.current) Color(0xFF805300)
+        else VelocityColors.Warning
+internal val Panel: Color
+    @Composable get() = MaterialTheme.colorScheme.surface
+internal val Border: Color
+    @Composable get() = MaterialTheme.colorScheme.outlineVariant
 
 @Composable
 fun VelocityApp(
@@ -72,6 +83,16 @@ fun VelocityApp(
     mapController: OfflineMaps? = null,
     onGpsTabVisibility: (Boolean) -> Unit = {},
     onEasyReading: (Boolean) -> Unit = {},
+    onDaylight: (Boolean) -> Unit = {},
+    onTapHaptics: (Boolean) -> Unit = {},
+    onTripHaptics: (Boolean) -> Unit = {},
+    onDistanceChimes: (Boolean) -> Unit = {},
+    onEditJourneyTags: (String, String, String, List<String>) -> Unit = { id, name, notes, _ ->
+        onEditJourney(id, name, notes)
+    },
+    onFinishTagged: (String, String, List<String>) -> Unit = { name, notes, _ ->
+        onFinish(name, notes)
+    },
 ) {
     val snackbar = remember { SnackbarHostState() }
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
@@ -104,7 +125,7 @@ fun VelocityApp(
         }
     }
     Scaffold(
-        containerColor = VelocityColors.Background,
+        containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             if (state.saveFailed || !state.storageReady)
@@ -129,7 +150,7 @@ fun VelocityApp(
                 }
         },
         bottomBar = {
-            Column(Modifier.background(VelocityColors.Navigation)) {
+            Column(Modifier.background(MaterialTheme.colorScheme.surfaceContainerLow)) {
                 HorizontalDivider(color = Border.copy(alpha = 0.55f))
                 if (state.recording != Recording.IDLE && page != 0)
                     FlowRow(
@@ -181,14 +202,23 @@ fun VelocityApp(
                                 }
                                 AppButton(
                                     onClick = { finishDialog = true },
-                                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                                    modifier =
+                                        Modifier.weight(1f)
+                                            .fillMaxHeight()
+                                            .recordingHighlight(
+                                                state.recording == Recording.RECORDING,
+                                                MaterialTheme.colorScheme.onPrimary,
+                                            ),
                                     shape = RoundedCornerShape(14.dp),
                                 ) {
                                     Text("Finish & save")
                                 }
                             }
                     }
-                NavigationBar(containerColor = VelocityColors.Navigation, tonalElevation = 0.dp) {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    tonalElevation = 0.dp,
+                ) {
                     listOf(0 to "Speed", 1 to "Journeys", 3 to "GPS", 4 to "Settings")
                         .filter { it.first != 3 || state.showGpsTab }
                         .forEach { (index, label) ->
@@ -214,7 +244,8 @@ fun VelocityApp(
                                     NavigationBarItemDefaults.colors(
                                         selectedIconColor = Pink,
                                         selectedTextColor = Pink,
-                                        indicatorColor = VelocityColors.Raised,
+                                        indicatorColor =
+                                            MaterialTheme.colorScheme.surfaceContainerHighest,
                                         unselectedIconColor = Muted,
                                         unselectedTextColor = Muted,
                                     ),
@@ -254,6 +285,10 @@ fun VelocityApp(
                             mapState,
                             mapController,
                             onEasyReading,
+                            onDaylight,
+                            onTapHaptics,
+                            onTripHaptics,
+                            onDistanceChimes,
                         )
                     else ->
                         Dashboard(
@@ -281,7 +316,7 @@ fun VelocityApp(
                     selected = null
                 },
                 onExport = { onExport(journey) },
-                onEdit = { name, notes -> onEditJourney(journey.id, name, notes) },
+                onEdit = { name, notes, tags -> onEditJourneyTags(journey.id, name, notes, tags) },
             )
         }
     if (finishDialog)
@@ -294,6 +329,10 @@ fun VelocityApp(
             { name, notes ->
                 finishDialog = false
                 onFinish(name, notes)
+            },
+            onSaveWithTags = { name, notes, tags ->
+                finishDialog = false
+                onFinishTagged(name, notes, tags)
             },
         )
 }
@@ -329,37 +368,14 @@ private fun Dashboard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(AppSpace.Related),
                 ) {
-                    StatusDot(
-                        if (state.recording == Recording.PAUSED) Amber else Green,
-                        state.recording,
-                    )
+                    LiveRecordingDot(state.recording == Recording.RECORDING)
                     Eyebrow(
                         if (state.recording == Recording.PAUSED) "JOURNEY PAUSED"
                         else "JOURNEY IN PROGRESS"
                     )
                 }
-            SpeedDial(state)
-            val detail =
-                when {
-                    !state.trackingEnabled -> "Tracking is off"
-                    !state.permission -> "Precise location needed"
-                    !state.gpsEnabled -> "GPS is turned off"
-                    !state.hasSignal ->
-                        if (state.searchAccuracy != null) "Improving location accuracy…"
-                        else "Finding your GPS signal…"
-                    state.speedLimit > 0 && state.speed > state.speedLimit ->
-                        "Above your speed reminder"
-                    else ->
-                        "${state.locationQuality.label} signal · ±${state.fix?.accuracy?.roundToInt() ?: 0} m"
-                }
-            Text(
-                detail,
-                color =
-                    if (state.speedLimit > 0 && state.speed > state.speedLimit) Amber else Muted,
-                fontSize = 14.sp,
-                lineHeight = 18.sp,
-                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-            )
+            SpeedGauge(state)
+            QuickStats(state)
         }
         GlassCard {
             StatsRow {
@@ -377,20 +393,11 @@ private fun Dashboard(
                 )
             }
             HorizontalDivider(color = Border)
-            StatsRow {
-                Stat(
-                    "AVERAGE",
-                    decimal(state.averageSpeed * state.unit.multiplier, 0),
-                    state.unit.label,
-                    Modifier.weight(1f),
-                )
-                Stat(
-                    "TOP SPEED",
-                    decimal(state.maxSpeed * state.unit.multiplier, 0),
-                    state.unit.label,
-                    Modifier.weight(1f),
-                )
-            }
+            Text(
+                "Average ${decimal(state.averageSpeed * state.unit.multiplier, 0)} ${state.unit.label}",
+                color = Muted,
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
         if (state.trackingEnabled && state.permission && state.gpsEnabled && !state.hasSignal) {
             state.locationProblem?.let {
@@ -428,98 +435,6 @@ private fun Dashboard(
 }
 
 @Composable
-private fun SpeedDial(state: DriveState) {
-    val speed = state.speed * state.unit.multiplier
-    val maximum = if (state.unit == SpeedUnit.KMH) 200.0 else 120.0
-    val fraction by
-        animateFloatAsState((speed / maximum).coerceIn(0.0, 1.0).toFloat(), label = "Live speed")
-    val accent by
-        animateColorAsState(
-            if (state.speedLimit > 0 && state.speed > state.speedLimit) Amber else Pink,
-            animationSpec = tween(220),
-            label = "Speed reminder colour",
-        )
-    BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        val diameter = minOf(maxWidth, 272.dp)
-        val numberSize = with(LocalDensity.current) { minOf(96.sp.toDp(), diameter / 2.8f).toSp() }
-        Box(
-            Modifier.size(diameter).semantics(mergeDescendants = true) {
-                contentDescription = "Current speed ${speed.roundToInt()} ${state.unit.label}"
-            },
-            contentAlignment = Alignment.Center,
-        ) {
-            Canvas(Modifier.fillMaxSize().padding(12.dp)) {
-                val inset = 22.dp.toPx()
-                val radius = (size.minDimension - inset * 2) / 2
-                val center = Offset(size.width / 2, size.height / 2)
-                val origin = center - Offset(radius, radius)
-                val arcSize = Size(radius * 2, radius * 2)
-                drawArc(
-                    VelocityColors.Raised,
-                    135f,
-                    270f,
-                    false,
-                    origin,
-                    arcSize,
-                    style = Stroke(4.dp.toPx(), cap = StrokeCap.Round),
-                )
-                if (fraction > 0)
-                    drawArc(
-                        accent,
-                        135f,
-                        270f * fraction,
-                        false,
-                        origin,
-                        arcSize,
-                        style = Stroke(4.dp.toPx(), cap = StrokeCap.Round),
-                    )
-                for (index in 0..20) {
-                    val angle = Math.toRadians(135.0 + index * 13.5)
-                    val major = index % 5 == 0
-                    val outer = radius + 12.dp.toPx()
-                    val inner = outer - (if (major) 8.dp.toPx() else 4.dp.toPx())
-                    drawLine(
-                        if (index / 20f <= fraction && fraction > 0) accent else Border,
-                        center + Offset(cos(angle).toFloat() * inner, sin(angle).toFloat() * inner),
-                        center + Offset(cos(angle).toFloat() * outer, sin(angle).toFloat() * outer),
-                        1.5.dp.toPx(),
-                    )
-                }
-                val tip = Math.toRadians(135.0 + 270 * fraction)
-                val dot = center + Offset(cos(tip).toFloat() * radius, sin(tip).toFloat() * radius)
-                drawCircle(accent, 4.dp.toPx(), dot)
-            }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    if (state.hasSignal) speed.roundToInt().toString() else "0",
-                    fontSize = numberSize,
-                    fontWeight = FontWeight.Medium,
-                    fontFamily = FontFamily.Default,
-                    letterSpacing = (-3).sp,
-                    lineHeight = numberSize * 1.1f,
-                )
-                Text(
-                    state.unit.label.uppercase(Locale.getDefault()),
-                    color = Pink,
-                    fontSize = 14.sp,
-                    letterSpacing = 1.sp,
-                )
-                Spacer(Modifier.height(12.dp))
-            }
-            Row(
-                Modifier.align(Alignment.BottomCenter)
-                    .padding(bottom = 14.dp)
-                    .width(diameter * 0.68f),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text("0", fontSize = 10.sp, color = Muted)
-                Text(maximum.toInt().toString(), fontSize = 10.sp, color = Muted)
-            }
-        }
-    }
-}
-
-@Composable
 private fun JourneysScreen(state: DriveState, modifier: Modifier, select: (Journey) -> Unit) {
     val summary = JourneyTotals.from(state.journeys, System.currentTimeMillis())
     LazyColumn(
@@ -539,44 +454,7 @@ private fun JourneysScreen(state: DriveState, modifier: Modifier, select: (Journ
                     )
                 }
             }
-        if (state.journeys.isNotEmpty())
-            item {
-                GlassCard {
-                    StatsRow {
-                        Stat("JOURNEYS", state.journeys.size.toString(), "", Modifier.weight(1f))
-                        Stat(
-                            "TOTAL DISTANCE",
-                            decimal(
-                                state.journeys.sumOf { it.distanceMeters } /
-                                    state.unit.distanceDivisor
-                            ),
-                            state.unit.distanceLabel,
-                            Modifier.weight(1f),
-                        )
-                    }
-                    HorizontalDivider(color = Border)
-                    StatsRow {
-                        Stat(
-                            "AVERAGE SPEED",
-                            decimal(summary.averageSpeed * state.unit.multiplier, 0),
-                            state.unit.label,
-                            Modifier.weight(1f),
-                        )
-                        Stat(
-                            "TOP SPEED",
-                            decimal(summary.maxSpeed * state.unit.multiplier, 0),
-                            state.unit.label,
-                            Modifier.weight(1f),
-                        )
-                    }
-                    Text(
-                        "Last 7 days: ${decimal(summary.recentDistance / state.unit.distanceDivisor)} ${state.unit.distanceLabel} · Recorded time: ${duration(summary.recordedMillis)}",
-                        color = Muted,
-                        fontSize = 14.sp,
-                        modifier = Modifier,
-                    )
-                }
-            }
+        if (state.journeys.isNotEmpty()) item { JourneySummary(state, summary) }
         items(state.journeys, key = { it.id }) { journey ->
             val interactions = remember { MutableInteractionSource() }
             GlassCard(
@@ -589,7 +467,7 @@ private fun JourneysScreen(state: DriveState, modifier: Modifier, select: (Journ
                     }
                     .semantics {
                         contentDescription =
-                            "Journey ${date(journey.startedAt)}, ${decimal(journey.distanceMeters / state.unit.distanceDivisor)} ${state.unit.distanceLabel}"
+                            "${journey.displayName}, ${decimal(journey.distanceMeters / state.unit.distanceDivisor)} ${state.unit.distanceLabel}"
                     }
             ) {
                 Row(
@@ -613,7 +491,8 @@ private fun JourneysScreen(state: DriveState, modifier: Modifier, select: (Journ
                     }
                     Text("View →", color = Pink, fontSize = 14.sp, maxLines = 1, softWrap = false)
                 }
-                RouteTrace(journey.points, Modifier.fillMaxWidth().height(100.dp))
+                JourneyTagPills(journey.tags)
+                RouteTrace(journey.points, Modifier.fillMaxWidth().height(116.dp))
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(18.dp),
                     verticalArrangement = Arrangement.spacedBy(AppSpace.Related),
@@ -649,6 +528,10 @@ private fun SettingsScreen(
     maps: MapState,
     mapController: OfflineMaps?,
     onEasyReading: (Boolean) -> Unit,
+    onDaylight: (Boolean) -> Unit,
+    onTapHaptics: (Boolean) -> Unit,
+    onTripHaptics: (Boolean) -> Unit,
+    onDistanceChimes: (Boolean) -> Unit,
 ) {
     var privacyDetails by rememberSaveable { mutableStateOf(false) }
     Column(
@@ -675,52 +558,93 @@ private fun SettingsScreen(
                 }
             }
         }
-        GlassCard {
-            Eyebrow("DISPLAY")
-            Column {
-                PreferenceRow(
-                    "Easy reading",
-                    "Larger text and roomier controls",
-                    state.easyReading,
-                    onEasyReading,
-                )
-                HorizontalDivider(color = Border.copy(alpha = 0.55f))
-                PreferenceRow(
-                    "Keep screen awake",
-                    "While the speedometer is open",
-                    state.keepAwake,
-                    onAwake,
-                )
-                HorizontalDivider(color = Border.copy(alpha = 0.55f))
-                PreferenceRow(
-                    "Show GPS tab",
-                    "Signal and satellite details",
-                    state.showGpsTab,
-                    onGpsTabVisibility,
-                )
-            }
-        }
-        GlassCard {
+        SettingsSection("Behavior") {
+            PreferenceRow(
+                "Keep screen awake",
+                "While the speedometer is open",
+                state.keepAwake,
+                onAwake,
+            )
+            HorizontalDivider(color = Border)
             PreferenceRow(
                 "Speed reminder",
-                "",
+                "Show your chosen limit on the dial",
                 state.speedLimit > 0,
-                { onLimit(if (it) 50.0 / 3.6 else 0.0) },
+                {
+                    onLimit(
+                        if (it)
+                            (if (state.unit == SpeedUnit.KMH) 50.0 else 30.0) /
+                                state.unit.multiplier
+                        else 0.0
+                    )
+                },
             )
             if (state.speedLimit > 0) {
                 Text(
-                    "${decimal(state.speedLimit * state.unit.multiplier, 0)} ${state.unit.label}",
+                    "Your limit � ${decimal(state.speedLimit * state.unit.multiplier, 0)} ${state.unit.label}",
                     color = Pink,
-                    style = MaterialTheme.typography.headlineMedium,
-                    modifier = Modifier,
+                    style = MaterialTheme.typography.titleMedium,
                 )
                 Slider(
-                    value = (state.speedLimit * state.unit.multiplier).toFloat(),
-                    onValueChange = { onLimit(it / state.unit.multiplier) },
+                    value =
+                        (state.speedLimit * state.unit.multiplier)
+                            .toFloat()
+                            .coerceIn(
+                                if (state.unit == SpeedUnit.KMH) 10f else 5f,
+                                if (state.unit == SpeedUnit.KMH) 200f else 125f,
+                            ),
+                    onValueChange = {
+                        onLimit((it / 5f).roundToInt() * 5.0 / state.unit.multiplier)
+                    },
                     valueRange = if (state.unit == SpeedUnit.KMH) 10f..200f else 5f..125f,
+                    steps = if (state.unit == SpeedUnit.KMH) 37 else 23,
                     modifier = Modifier.semantics { contentDescription = "Speed reminder limit" },
                 )
             }
+            HorizontalDivider(color = Border)
+            PreferenceRow(
+                "Haptic feedback on tap",
+                "Buttons and navigation",
+                state.tapHaptics,
+                onTapHaptics,
+            )
+            HorizontalDivider(color = Border)
+            PreferenceRow(
+                "Trip haptics",
+                "Start, pause and finish",
+                state.tripHaptics,
+                onTripHaptics,
+            )
+            HorizontalDivider(color = Border)
+            PreferenceRow(
+                "Distance chimes",
+                "Every 1 ${state.unit.distanceLabel} � notification volume",
+                state.distanceChimes,
+                onDistanceChimes,
+            )
+        }
+        SettingsSection("Appearance") {
+            PreferenceRow(
+                "Large text mode",
+                "Larger text and roomier controls",
+                state.easyReading,
+                onEasyReading,
+            )
+            HorizontalDivider(color = Border)
+            PreferenceRow(
+                "High-contrast daylight mode",
+                "Bright surfaces and stronger contrast",
+                state.daylight,
+                onDaylight,
+            )
+        }
+        SettingsSection("Diagnostics") {
+            PreferenceRow(
+                "Show GPS tab",
+                "Signal and satellite details",
+                state.showGpsTab,
+                onGpsTabVisibility,
+            )
         }
         if (mapController != null) OfflineMapSettings(state, maps, mapController)
         GlassCard {
@@ -782,7 +706,7 @@ private fun JourneyDetails(
     onDismiss: () -> Unit,
     onDelete: () -> Unit,
     onExport: () -> Unit,
-    onEdit: (String, String) -> Unit,
+    onEdit: (String, String, List<String>) -> Unit,
 ) {
     var delete by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
@@ -794,8 +718,8 @@ private fun JourneyDetails(
         Surface(
             modifier = Modifier.fillMaxSize().systemBarsPadding(),
             shape = RoundedCornerShape(0.dp),
-            color = VelocityColors.Background,
-            contentColor = VelocityColors.Text,
+            color = MaterialTheme.colorScheme.background,
+            contentColor = MaterialTheme.colorScheme.onSurface,
         ) {
             Column(Modifier.fillMaxSize()) {
                 Row(
@@ -826,9 +750,11 @@ private fun JourneyDetails(
                             "${date(journey.startedAt)} · ${time(journey.startedAt)}",
                             color = Muted,
                         )
+                        JourneyTagPills(journey.tags)
                         if (journey.notes.isNotBlank()) Text(journey.notes, fontSize = 14.sp)
                         AppTextButton(onClick = { editing = true }) { Text("Edit name & notes") }
                     }
+                    SpeedGraph(journey, unit)
                     Column(verticalArrangement = Arrangement.spacedBy(AppSpace.Group)) {
                         Text(
                             "Route",
@@ -846,7 +772,7 @@ private fun JourneyDetails(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 RouteMarker("Start", Green)
-                                RouteMarker("Finish", VelocityColors.Text)
+                                RouteMarker("Finish", MaterialTheme.colorScheme.onSurface)
                             }
                         } else {
                             Text(
@@ -889,7 +815,6 @@ private fun JourneyDetails(
                             Text("Average calculation")
                         }
                     }
-                    SpeedGraph(journey, unit)
                     if (journey.interrupted)
                         Text(
                             "Recovered after recording was interrupted. Includes the last saved checkpoint.",
@@ -931,7 +856,12 @@ private fun JourneyDetails(
             "Save changes",
             { editing = false },
             { name, notes ->
-                onEdit(name, notes)
+                onEdit(name, notes, journey.tags)
+                editing = false
+            },
+            initialTags = journey.tags,
+            onSaveWithTags = { name, notes, tags ->
+                onEdit(name, notes, tags)
                 editing = false
             },
         )
@@ -960,9 +890,15 @@ private fun RouteMarker(label: String, color: Color) {
 
 @Composable
 internal fun RouteTrace(points: List<RoutePoint>, modifier: Modifier) {
+    val routeColor = Pink
+    val startColor = Green
+    val finishColor = MaterialTheme.colorScheme.onSurface
     if (points.isEmpty())
         Box(
-            modifier.background(VelocityColors.Navigation, RoundedCornerShape(12.dp)),
+            modifier.background(
+                MaterialTheme.colorScheme.surfaceContainerLow,
+                RoundedCornerShape(12.dp),
+            ),
             contentAlignment = Alignment.Center,
         ) {
             Text("Route appears after a GPS fix", color = Muted, fontSize = 14.sp)
@@ -980,23 +916,14 @@ internal fun RouteTrace(points: List<RoutePoint>, modifier: Modifier) {
             }
         }
     Canvas(
-        modifier.clip(RoundedCornerShape(12.dp)).background(VelocityColors.Navigation).semantics {
-            contentDescription = "Recorded route trace, north up, ${points.size} GPS points"
-        }
+        modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .semantics {
+                contentDescription = "Recorded route trace, north up, ${points.size} GPS points"
+            }
     ) {
         val inset = 22.dp.toPx()
-        for (i in 1..5) {
-            drawLine(
-                Border.copy(alpha = 0.35f),
-                Offset(size.width * i / 6, 0f),
-                Offset(size.width * i / 6, size.height),
-            )
-            drawLine(
-                Border.copy(alpha = 0.35f),
-                Offset(0f, size.height * i / 6),
-                Offset(size.width, size.height * i / 6),
-            )
-        }
         val minX = positions.minOf { it.x }
         val maxX = positions.maxOf { it.x }
         val minY = positions.minOf { it.y }
@@ -1020,11 +947,11 @@ internal fun RouteTrace(points: List<RoutePoint>, modifier: Modifier) {
         }
         drawPath(
             path,
-            Pink,
+            routeColor,
             style = Stroke(3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
         )
-        drawCircle(Green, 5.dp.toPx(), project(positions.first()))
-        drawCircle(Color.White, 4.dp.toPx(), project(positions.last()))
+        drawCircle(startColor, 5.dp.toPx(), project(positions.first()))
+        drawCircle(finishColor, 4.dp.toPx(), project(positions.last()))
     }
 }
 
@@ -1034,7 +961,7 @@ internal fun GlassCard(modifier: Modifier = Modifier, content: @Composable Colum
         modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
         color = Panel,
-        contentColor = VelocityColors.Text,
+        contentColor = MaterialTheme.colorScheme.onSurface,
         border = BorderStroke(1.dp, Border.copy(alpha = 0.55f)),
     ) {
         Column(
@@ -1050,15 +977,22 @@ private fun PrimaryButton(label: String, onClick: () -> Unit, enabled: Boolean) 
     AppButton(
         onClick,
         enabled = enabled,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp),
+        haptic = !com.example.myapplication.ui.theme.LocalTripHaptics.current,
         shape = RoundedCornerShape(14.dp),
     ) {
-        Text(label, fontWeight = FontWeight.Medium, fontSize = 16.sp)
+        Text(label, fontWeight = FontWeight.Bold, fontSize = 18.sp)
     }
 }
 
 @Composable
-internal fun Stat(label: String, value: String, unit: String, modifier: Modifier = Modifier) {
+internal fun Stat(
+    label: String,
+    value: String,
+    unit: String,
+    modifier: Modifier = Modifier,
+    reserveUnitSpace: Boolean = false,
+) {
     Column(
         modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1071,8 +1005,8 @@ internal fun Stat(label: String, value: String, unit: String, modifier: Modifier
             lineHeight = 32.sp,
             fontWeight = FontWeight.Medium,
         )
-        if (unit.isNotBlank())
-            Text(unit, color = Muted, style = MaterialTheme.typography.labelSmall)
+        if (unit.isNotBlank() || reserveUnitSpace)
+            Text(unit.ifBlank { " " }, color = Muted, style = MaterialTheme.typography.labelSmall)
     }
 }
 
@@ -1113,16 +1047,27 @@ internal fun Header(
 
 @Composable
 private fun SignalPill(state: DriveState, onClick: (() -> Unit)? = null) {
-    val color by
-        animateColorAsState(
-            when (state.locationQuality) {
-                LocationQuality.GOOD -> Green
-                LocationQuality.WEAK -> Amber
-                else -> Muted
-            },
-            animationSpec = tween(220),
-            label = "GPS quality colour",
-        )
+    val quality = state.locationQuality
+    val targetColor =
+        when (quality) {
+            LocationQuality.GOOD -> Green
+            LocationQuality.WEAK -> Amber
+            LocationQuality.SEARCHING -> MaterialTheme.colorScheme.error
+            LocationQuality.OFF -> Muted
+        }
+    val color by animateColorAsState(targetColor, tween(220), label = "GPS quality colour")
+    val label =
+        when {
+            !state.trackingEnabled -> "Tracking off"
+            !state.permission -> "Location access needed"
+            !state.gpsEnabled -> "Location off"
+            quality == LocationQuality.SEARCHING -> "GPS � Lost"
+            else ->
+                "GPS � ${quality.label}" +
+                    (if (state.hasSignal) state.fix?.accuracy else state.searchAccuracy)
+                        ?.let { " � �${it.roundToInt()} m" }
+                        .orEmpty()
+        }
     Row(
         Modifier.background(color.copy(alpha = 0.08f), CircleShape)
             .then(
@@ -1147,6 +1092,7 @@ private fun SignalPill(state: DriveState, onClick: (() -> Unit)? = null) {
 
 @Composable
 private fun NavGlyph(index: Int, selected: Boolean, modifier: Modifier = Modifier) {
+    val panelColor = Panel
     val color = animateColorAsState(if (selected) Pink else Muted, tween(180), label = "Tab colour")
     val scale = animateFloatAsState(if (selected) 1.08f else 1f, tween(180), label = "Tab emphasis")
     Canvas(
@@ -1250,7 +1196,7 @@ private fun NavGlyph(index: Int, selected: Boolean, modifier: Modifier = Modifie
                         StrokeCap.Round,
                     )
                     drawCircle(
-                        Panel,
+                        panelColor,
                         stroke * 2,
                         Offset(size.width * (if (i == 1) .65f else .35f), y),
                     )

@@ -57,7 +57,7 @@ const home = await screen('Start journey');
 for (let i = 0; i < 10; i++) { await pause(); healthy(); }
 if (home.includes('text="Map"')) throw Error('The removed Map tab is still present');
 tap(home, 'Settings');
-tap(await screen('Easy reading', true), 'Easy reading');
+tap(await screen('Large text mode', true), 'Large text mode');
 tap(await screen('Enable offline map downloads', true), 'Enable offline map downloads');
 const settings = await screen('Choose area to download', true);
 call('shell', 'screencap', '-p', '/data/local/tmp/velocity-signed-settings.png');
@@ -74,4 +74,4 @@ await screen('Start journey');
 healthy();
 call('shell', 'screencap', '-p', '/data/local/tmp/velocity-signed-reading.png');
 call('pull', '/data/local/tmp/velocity-signed-reading.png', `${output}/easy-reading.png`);
-console.log('Signed release passed startup, automatic-update transport, Easy reading, offline Settings, map area selection and return-to-home checks.');
+console.log('Signed release passed startup, automatic-update transport, Large text mode, offline Settings, map area selection and return-to-home checks.');

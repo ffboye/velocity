@@ -11,11 +11,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
+import com.example.myapplication.ui.theme.LocalTapHaptics
 
 /** Finite, event-driven motion. Compose applies Android's animator duration scale. */
 @Composable
@@ -40,9 +43,10 @@ internal fun Modifier.pressMotion(
 @Composable
 internal fun clickWithFeedback(action: () -> Unit): () -> Unit {
     val view = LocalView.current
+    val enabled = LocalTapHaptics.current
     return {
         // No ignore-setting flags: Android controls whether touch feedback is enabled.
-        view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+        if (enabled) view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
         action()
     }
 }
@@ -81,5 +85,47 @@ internal fun StatusDot(color: Color, state: Any) {
             )
         }
         drawCircle(color, radius = 2.5.dp.toPx())
+    }
+}
+
+@Composable
+internal fun LiveRecordingDot(active: Boolean) {
+    if (!active) {
+        StatusDot(Amber, false)
+        return
+    }
+    val color = Green
+    val transition = rememberInfiniteTransition(label = "Recording indicator")
+    val pulse =
+        transition.animateFloat(
+            0.35f,
+            1f,
+            infiniteRepeatable(tween(1100), RepeatMode.Reverse),
+            label = "Recording pulse",
+        )
+    Canvas(Modifier.size(12.dp)) {
+        drawCircle(color.copy(alpha = pulse.value * 0.22f), radius = size.minDimension / 2)
+        drawCircle(color.copy(alpha = 0.65f + pulse.value * 0.35f), radius = 3.dp.toPx())
+    }
+}
+
+@Composable
+internal fun Modifier.recordingHighlight(active: Boolean, color: Color): Modifier {
+    if (!active) return this
+    val transition = rememberInfiniteTransition(label = "Active journey action")
+    val pulse =
+        transition.animateFloat(
+            0.12f,
+            0.4f,
+            infiniteRepeatable(tween(1100), RepeatMode.Reverse),
+            label = "Action pulse",
+        )
+    return drawWithContent {
+        drawContent()
+        drawRoundRect(
+            color.copy(alpha = pulse.value),
+            cornerRadius = CornerRadius(14.dp.toPx()),
+            style = Stroke(2.dp.toPx()),
+        )
     }
 }

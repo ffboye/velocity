@@ -19,11 +19,12 @@ internal fun AppButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     shape: Shape = RoundedCornerShape(14.dp),
+    haptic: Boolean = true,
     content: @Composable RowScope.() -> Unit,
 ) {
     val interactions = remember { MutableInteractionSource() }
     Button(
-        onClick = clickWithFeedback(onClick),
+        onClick = if (haptic) clickWithFeedback(onClick) else onClick,
         interactionSource = interactions,
         modifier =
             modifier

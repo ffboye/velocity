@@ -28,10 +28,17 @@ class JourneyRepository(context: Context) {
                     SpeedUnit.entries.firstOrNull { it.name == settings.getString("unit", "KMH") }
                         ?: SpeedUnit.KMH,
                 keepAwake = settings.getBoolean("keep_awake", true),
-                speedLimit = settings.getFloat("speed_limit", 0f).toDouble(),
+                speedLimit =
+                    settings.getFloat("speed_limit", 0f).toDouble().takeIf {
+                        it.isFinite() && it in 0.0..100.0
+                    } ?: 0.0,
                 trackingEnabled = settings.getBoolean("tracking_enabled", true),
                 showGpsTab = settings.getBoolean("show_gps_tab", true),
                 easyReading = settings.getBoolean("easy_reading", false),
+                daylight = settings.getBoolean("daylight", false),
+                tapHaptics = settings.getBoolean("tap_haptics", true),
+                tripHaptics = settings.getBoolean("trip_haptics", true),
+                distanceChimes = settings.getBoolean("distance_chimes", false),
             )
         )
     val state = mutable.asStateFlow()
@@ -227,7 +234,12 @@ class JourneyRepository(context: Context) {
         persist()
     }
 
-    fun finish(interrupted: Boolean = false, name: String = "", notes: String = "") {
+    fun finish(
+        interrupted: Boolean = false,
+        name: String = "",
+        notes: String = "",
+        tags: List<String> = emptyList(),
+    ) {
         val journey =
             engine
                 .finish(SystemClock.elapsedRealtime())
@@ -235,6 +247,7 @@ class JourneyRepository(context: Context) {
                     interrupted = interrupted,
                     name = name.trim().take(100),
                     notes = notes.trim().take(2000),
+                    tags = JourneyTags.clean(tags),
                 ) ?: return
         mutable.update {
             it.copy(
@@ -266,14 +279,18 @@ class JourneyRepository(context: Context) {
         persist()
     }
 
-    fun editJourney(id: String, name: String, notes: String) {
+    fun editJourney(id: String, name: String, notes: String, tags: List<String>? = null) {
         if (!storageHealthy || installationInProgress) return
         mutable.update {
             it.copy(
                 journeys =
                     it.journeys.map { trip ->
                         if (trip.id == id)
-                            trip.copy(name = name.trim().take(100), notes = notes.trim().take(2000))
+                            trip.copy(
+                                name = name.trim().take(100),
+                                notes = notes.trim().take(2000),
+                                tags = tags?.let(JourneyTags::clean) ?: trip.tags,
+                            )
                         else trip
                     }
             )
@@ -333,8 +350,29 @@ class JourneyRepository(context: Context) {
     }
 
     fun limit(speed: Double) {
-        settings.edit { putFloat("speed_limit", speed.toFloat()) }
-        mutable.update { it.copy(speedLimit = speed) }
+        val value = speed.takeIf { it.isFinite() && it in 0.0..100.0 } ?: 0.0
+        settings.edit { putFloat("speed_limit", value.toFloat()) }
+        mutable.update { it.copy(speedLimit = value) }
+    }
+
+    fun daylight(enabled: Boolean) {
+        settings.edit { putBoolean("daylight", enabled) }
+        mutable.update { it.copy(daylight = enabled) }
+    }
+
+    fun tapHaptics(enabled: Boolean) {
+        settings.edit { putBoolean("tap_haptics", enabled) }
+        mutable.update { it.copy(tapHaptics = enabled) }
+    }
+
+    fun tripHaptics(enabled: Boolean) {
+        settings.edit { putBoolean("trip_haptics", enabled) }
+        mutable.update { it.copy(tripHaptics = enabled) }
+    }
+
+    fun distanceChimes(enabled: Boolean) {
+        settings.edit { putBoolean("distance_chimes", enabled) }
+        mutable.update { it.copy(distanceChimes = enabled) }
     }
 
     fun message(text: String?) {

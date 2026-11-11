@@ -124,6 +124,7 @@ class UiSpacingAuditTest {
                 ),
                 name = "Morning canal route",
                 notes = "Along the water, with a short break before heading home.",
+                tags = listOf("Commute", "Cycling"),
                 samples =
                     (0..12).map {
                         SpeedSample(it * 300000L, (it % 6 + 4).toDouble(), if (it < 6) 0 else 1)
@@ -135,7 +136,8 @@ class UiSpacingAuditTest {
                 permission = true,
                 gpsEnabled = true,
                 hasSignal = true,
-                fix = GpsFix(52.366, 4.901, 7f, 1000, 1700000000000),
+                fix = GpsFix(52.366, 4.901, 7f, 1000, 1700000000000, altitude = 24.0),
+                speed = 16.0,
                 fixAgeMillis = 500,
                 gnssFresh = true,
                 gnss =
@@ -195,7 +197,12 @@ class UiSpacingAuditTest {
                 DeviceConfigurationOverride.FontScale(if (large) 1.5f else 1f)
             ) {
                 key(scene, large) {
-                    MyApplicationTheme(easyReading = large) {
+                    MyApplicationTheme(
+                        easyReading = large,
+                        daylight = data.daylight,
+                        tapHaptics = false,
+                        tripHaptics = false,
+                    ) {
                         VelocityApp(
                             data,
                             page,
@@ -239,7 +246,7 @@ class UiSpacingAuditTest {
                 }
             }
         }
-        for (profile in listOf("standard", "large")) {
+        for (profile in listOf("standard", "large", "daylight")) {
             fun show(
                 target: Int = 0,
                 state: DriveState = ready,
@@ -247,7 +254,7 @@ class UiSpacingAuditTest {
             ) {
                 compose.runOnIdle {
                     large = profile == "large"
-                    data = state.copy(easyReading = large)
+                    data = state.copy(easyReading = large, daylight = profile == "daylight")
                     page = target
                     update = popup
                     scene++
@@ -255,7 +262,17 @@ class UiSpacingAuditTest {
             }
             fun capture(name: String) = audit("$profile-$name")
             show()
+            compose.onAllNodesWithText("GPS · Good", substring = true).assertCountEquals(1)
+            compose.onNodeWithTag("speed-limit-badge").assertDoesNotExist()
+            compose.onNodeWithTag("speed-limit-ring", useUnmergedTree = true).assertDoesNotExist()
             capture("speed")
+            show(state = ready.copy(speedLimit = 50.0 / 3.6, speed = 52.0 / 3.6))
+            compose.onNodeWithTag("speed-limit-badge").assertExists()
+            capture("limit-amber")
+            show(state = ready.copy(speedLimit = 50.0 / 3.6, speed = 60.0 / 3.6))
+            compose.onNodeWithTag("speed-limit-ring", useUnmergedTree = true).assertExists()
+            capture("limit-red")
+            show()
             compose.onNodeWithText("RECORDED TIME").performScrollTo()
             capture("speed-metrics")
             show(state = ready.copy(permission = false, hasSignal = false, fix = null))
@@ -274,6 +291,9 @@ class UiSpacingAuditTest {
             capture("journeys")
             compose.onNodeWithTag("journeys-content").performScrollToNode(hasText(trip.name))
             compose.onNodeWithText(trip.name).performClick()
+            compose.onNodeWithText("Peak reading").performScrollTo().performClick()
+            compose.onNodeWithTag("speed-graph").performScrollTo()
+            capture("journey-graph")
             compose.onNode(hasText("Fit route") and hasClickAction()).performScrollTo()
             capture("journey-route")
             compose.onNodeWithText("Average calculation").performScrollTo()
@@ -302,7 +322,7 @@ class UiSpacingAuditTest {
             compose.onNodeWithText("Keep journey").performClick()
             show(4)
             capture("settings")
-            compose.onNodeWithContentDescription("Easy reading").performScrollTo()
+            compose.onNodeWithContentDescription("Large text mode").performScrollTo()
             capture("display-settings")
             compose.onNodeWithContentDescription("Show GPS tab").performScrollTo()
             compose.onNodeWithText("Signal and satellite details").assertIsDisplayed()
