@@ -24,7 +24,7 @@ import java.util.Locale
 import kotlin.math.*
 
 @Composable
-internal fun SpeedGauge(state: DriveState) {
+internal fun SpeedGauge(state: DriveState, maxDiameter: Dp = 300.dp) {
     val speed = if (state.hasSignal) state.speed * state.unit.multiplier else 0.0
     val limit = state.speedLimit.takeIf { it.isFinite() && it > 0 }
     val over = limit != null && state.hasSignal && state.speed > limit
@@ -55,7 +55,7 @@ internal fun SpeedGauge(state: DriveState) {
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            val diameter = minOf(maxWidth, 300.dp)
+            val diameter = minOf(maxWidth, maxDiameter)
             val numberSize =
                 with(LocalDensity.current) { minOf(108.sp.toDp(), diameter / 2.6f).toSp() }
             Box(

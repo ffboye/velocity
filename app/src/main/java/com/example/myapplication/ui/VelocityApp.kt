@@ -347,90 +347,93 @@ private fun Dashboard(
     onRetryGps: () -> Unit,
     onConnectivity: () -> Unit,
 ) {
-    Column(
-        modifier.verticalScroll(rememberScrollState()).padding(AppSpace.Page),
-        verticalArrangement = Arrangement.spacedBy(AppSpace.Section),
-    ) {
-        Header("Speedometer", state, onConnectivity)
-        if (!state.trackingEnabled)
-            GlassCard {
-                Text("Tracking is off", style = MaterialTheme.typography.titleMedium)
-                Text("Resume tracking in GPS controls.", color = Muted)
-                AppTextButton(onConnectivity) { Text("Open GPS controls") }
-            }
+    BoxWithConstraints(modifier) {
+        val gaugeDiameter = (maxHeight * 0.5f).coerceIn(200.dp, 300.dp)
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(AppSpace.Related),
-            modifier = Modifier.fillMaxWidth(),
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(AppSpace.Page),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            if (state.recording != Recording.IDLE)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(AppSpace.Related),
-                ) {
-                    LiveRecordingDot(state.recording == Recording.RECORDING)
-                    Eyebrow(
-                        if (state.recording == Recording.PAUSED) "JOURNEY PAUSED"
-                        else "JOURNEY IN PROGRESS"
+            Header("Speedometer", state, onConnectivity)
+            if (!state.trackingEnabled)
+                GlassCard {
+                    Text("Tracking is off", style = MaterialTheme.typography.titleMedium)
+                    Text("Resume tracking in GPS controls.", color = Muted)
+                    AppTextButton(onConnectivity) { Text("Open GPS controls") }
+                }
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(AppSpace.Related),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                if (state.recording != Recording.IDLE)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(AppSpace.Related),
+                    ) {
+                        LiveRecordingDot(state.recording == Recording.RECORDING)
+                        Eyebrow(
+                            if (state.recording == Recording.PAUSED) "JOURNEY PAUSED"
+                            else "JOURNEY IN PROGRESS"
+                        )
+                    }
+                SpeedGauge(state, gaugeDiameter)
+                QuickStats(state)
+            }
+            GlassCard {
+                StatsRow {
+                    Stat(
+                        "DISTANCE",
+                        decimal(state.distanceMeters / state.unit.distanceDivisor),
+                        state.unit.distanceLabel,
+                        Modifier.weight(1f),
+                    )
+                    Stat(
+                        "RECORDED TIME",
+                        duration(state.durationMillis),
+                        "h:mm:ss",
+                        Modifier.weight(1f),
                     )
                 }
-            SpeedGauge(state)
-            QuickStats(state)
-        }
-        GlassCard {
-            StatsRow {
-                Stat(
-                    "DISTANCE",
-                    decimal(state.distanceMeters / state.unit.distanceDivisor),
-                    state.unit.distanceLabel,
-                    Modifier.weight(1f),
-                )
-                Stat(
-                    "RECORDED TIME",
-                    duration(state.durationMillis),
-                    "h:mm:ss",
-                    Modifier.weight(1f),
-                )
-            }
-            HorizontalDivider(color = Border)
-            Text(
-                "Average ${decimal(state.averageSpeed * state.unit.multiplier, 0)} ${state.unit.label}",
-                color = Muted,
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-        if (state.trackingEnabled && state.permission && state.gpsEnabled && !state.hasSignal) {
-            state.locationProblem?.let {
-                Text(it, color = Amber, style = MaterialTheme.typography.bodySmall)
-            }
-            ActionRow {
-                AppTextButton(onClick = onRetryGps) { Text("Retry GPS") }
-                AppTextButton(onClick = onConnectivity) { Text("View GPS status") }
-            }
-        }
-        if (!state.permission)
-            GlassCard {
+                HorizontalDivider(color = Border)
                 Text(
-                    "Location permission needed",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 18.sp,
+                    "Average ${decimal(state.averageSpeed * state.unit.multiplier, 0)} ${state.unit.label}",
+                    color = Muted,
+                    style = MaterialTheme.typography.bodySmall,
                 )
+            }
+            if (state.trackingEnabled && state.permission && state.gpsEnabled && !state.hasSignal) {
+                state.locationProblem?.let {
+                    Text(it, color = Amber, style = MaterialTheme.typography.bodySmall)
+                }
                 ActionRow {
-                    AppTextButton(onClick = onLocation) { Text("Enable GPS access") }
-                    AppTextButton(onClick = onAppSettings) { Text("Permissions") }
+                    AppTextButton(onClick = onRetryGps) { Text("Retry GPS") }
+                    AppTextButton(onClick = onConnectivity) { Text("View GPS status") }
                 }
             }
-        else if (!state.gpsEnabled)
-            GlassCard {
-                Text("Switch on GPS", fontWeight = FontWeight.SemiBold)
-                Text("Device location is off.", color = Muted, fontSize = 14.sp)
-                AppTextButton(onClick = onGps) { Text("Open location settings") }
-            }
-        if (state.points.isNotEmpty())
-            GlassCard {
-                Eyebrow("YOUR ROUTE")
-                RouteTrace(state.points, Modifier.fillMaxWidth().height(145.dp))
-            }
+            if (!state.permission)
+                GlassCard {
+                    Text(
+                        "Location permission needed",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 18.sp,
+                    )
+                    ActionRow {
+                        AppTextButton(onClick = onLocation) { Text("Enable GPS access") }
+                        AppTextButton(onClick = onAppSettings) { Text("Permissions") }
+                    }
+                }
+            else if (!state.gpsEnabled)
+                GlassCard {
+                    Text("Switch on GPS", fontWeight = FontWeight.SemiBold)
+                    Text("Device location is off.", color = Muted, fontSize = 14.sp)
+                    AppTextButton(onClick = onGps) { Text("Open location settings") }
+                }
+            if (state.points.isNotEmpty())
+                GlassCard {
+                    Eyebrow("YOUR ROUTE")
+                    RouteTrace(state.points, Modifier.fillMaxWidth().height(145.dp))
+                }
+        }
     }
 }
 
@@ -581,7 +584,7 @@ private fun SettingsScreen(
             )
             if (state.speedLimit > 0) {
                 Text(
-                    "Your limit � ${decimal(state.speedLimit * state.unit.multiplier, 0)} ${state.unit.label}",
+                    "Your limit · ${decimal(state.speedLimit * state.unit.multiplier, 0)} ${state.unit.label}",
                     color = Pink,
                     style = MaterialTheme.typography.titleMedium,
                 )
@@ -618,7 +621,7 @@ private fun SettingsScreen(
             HorizontalDivider(color = Border)
             PreferenceRow(
                 "Distance chimes",
-                "Every 1 ${state.unit.distanceLabel} � notification volume",
+                "Every 1 ${state.unit.distanceLabel} · notification volume",
                 state.distanceChimes,
                 onDistanceChimes,
             )
@@ -751,10 +754,14 @@ private fun JourneyDetails(
                             color = Muted,
                         )
                         JourneyTagPills(journey.tags)
-                        if (journey.notes.isNotBlank()) Text(journey.notes, fontSize = 14.sp)
                         AppTextButton(onClick = { editing = true }) { Text("Edit name & notes") }
                     }
                     SpeedGraph(journey, unit)
+                    if (journey.notes.isNotBlank())
+                        GlassCard {
+                            Text("Notes", style = MaterialTheme.typography.titleSmall)
+                            Text(journey.notes, style = MaterialTheme.typography.bodyMedium)
+                        }
                     Column(verticalArrangement = Arrangement.spacedBy(AppSpace.Group)) {
                         Text(
                             "Route",
@@ -962,7 +969,13 @@ internal fun GlassCard(modifier: Modifier = Modifier, content: @Composable Colum
         shape = RoundedCornerShape(18.dp),
         color = Panel,
         contentColor = MaterialTheme.colorScheme.onSurface,
-        border = BorderStroke(1.dp, Border.copy(alpha = 0.55f)),
+        border =
+            BorderStroke(
+                if (com.example.myapplication.ui.theme.LocalDaylight.current) 1.5.dp else 1.dp,
+                if (com.example.myapplication.ui.theme.LocalDaylight.current)
+                    MaterialTheme.colorScheme.outline
+                else Border.copy(alpha = 0.55f),
+            ),
     ) {
         Column(
             Modifier.padding(AppSpace.Page),
@@ -1061,11 +1074,12 @@ private fun SignalPill(state: DriveState, onClick: (() -> Unit)? = null) {
             !state.trackingEnabled -> "Tracking off"
             !state.permission -> "Location access needed"
             !state.gpsEnabled -> "Location off"
-            quality == LocationQuality.SEARCHING -> "GPS � Lost"
+            quality == LocationQuality.SEARCHING ->
+                if (state.fix == null) "GPS · Searching" else "GPS · Lost"
             else ->
-                "GPS � ${quality.label}" +
+                "GPS · ${quality.label}" +
                     (if (state.hasSignal) state.fix?.accuracy else state.searchAccuracy)
-                        ?.let { " � �${it.roundToInt()} m" }
+                        ?.let { " · ±${it.roundToInt()} m" }
                         .orEmpty()
         }
     Row(
@@ -1080,13 +1094,7 @@ private fun SignalPill(state: DriveState, onClick: (() -> Unit)? = null) {
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         StatusDot(color, state.locationQuality)
-        Text(
-            "GPS · ${state.locationQuality.label.uppercase(Locale.getDefault())}",
-            color = color,
-            fontSize = 14.sp,
-            lineHeight = 18.sp,
-            letterSpacing = 0.7.sp,
-        )
+        Text(label, color = color, fontSize = 14.sp, lineHeight = 18.sp, letterSpacing = 0.7.sp)
     }
 }
 

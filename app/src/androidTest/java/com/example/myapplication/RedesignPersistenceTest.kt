@@ -45,6 +45,7 @@ class RedesignPersistenceTest {
                 repo.tripHaptics(false)
                 repo.distanceChimes(false)
                 assertTrue(repo.restore(listOf(journey)))
+                repo.message(null)
             }
             compose.onNodeWithText("Settings", useUnmergedTree = true).performClick()
             compose

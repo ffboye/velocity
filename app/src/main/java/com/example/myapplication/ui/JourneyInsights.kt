@@ -61,15 +61,6 @@ internal fun SpeedGraph(journey: Journey, unit: SpeedUnit) {
             color = Muted,
             style = MaterialTheme.typography.labelSmall,
         )
-        ActionRow {
-            AppTextButton(onClick = { selected = journey.samples.first() }) {
-                Text("First reading")
-            }
-            AppTextButton(onClick = { selected = journey.samples.maxBy { it.metersPerSecond } }) {
-                Text("Peak reading")
-            }
-            AppTextButton(onClick = { selected = journey.samples.last() }) { Text("Last reading") }
-        }
         Canvas(
             Modifier.fillMaxWidth()
                 .height(160.dp)
@@ -129,6 +120,15 @@ internal fun SpeedGraph(journey: Journey, unit: SpeedUnit) {
                 color = Muted,
                 style = MaterialTheme.typography.labelSmall,
             )
+        }
+        ActionRow {
+            AppTextButton(onClick = { selected = journey.samples.first() }) {
+                Text("First reading")
+            }
+            AppTextButton(onClick = { selected = journey.samples.maxBy { it.metersPerSecond } }) {
+                Text("Peak reading")
+            }
+            AppTextButton(onClick = { selected = journey.samples.last() }) { Text("Last reading") }
         }
     }
 }
